@@ -11,6 +11,5 @@ script:
   - golangci-lint run
   - go test -v -coverprofile=coverage.txt -covermode=atomic -race ./...
 
-
 after_success:
   - bash <(curl -s https://codecov.io/bash)
