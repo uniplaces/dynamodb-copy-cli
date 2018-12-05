@@ -23,5 +23,5 @@ go run cmd/dynamodbcopy/main.go
 ```
 Alternatively, you can easily build the binary by:
 ```
-go build -o dynamodbcopy cmd/dynamodbcopy/main.go 
+go build -o dynamodbcopy cmd/main.go
 ```
