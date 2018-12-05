@@ -6,5 +6,5 @@ import (
 )
 
 func main() {
-	cmd.New(viper.New()).Execute()
+	cmd.New(viper.New()).Execute() // nolint: errcheck
 }
