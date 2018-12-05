@@ -9,7 +9,6 @@ import (
 
 const (
 	cmdName = "copy-table"
-
 	shortDescription = "Copies dynamoDB records from a source to a target table"
 )
 
