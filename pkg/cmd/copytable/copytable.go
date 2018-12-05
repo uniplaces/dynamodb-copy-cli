@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	cmdName = "copy-table"
+	cmdName          = "copy-table"
 	shortDescription = "Copies dynamoDB records from a source to a target table"
 )
 
 func New(config *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:       fmt.Sprintf("%s <source-table> <target-table>", cmdName),
-		Short:     shortDescription,
-		Args: cobra.ExactArgs(2),
+		Use:   fmt.Sprintf("%s <source-table> <target-table>", cmdName),
+		Short: shortDescription,
+		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 		},
 	}

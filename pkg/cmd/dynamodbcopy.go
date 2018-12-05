@@ -10,7 +10,7 @@ const cmdName = "dynamodbcopy"
 
 func New(config *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   cmdName,
+		Use: cmdName,
 	}
 
 	cmd.AddCommand(
