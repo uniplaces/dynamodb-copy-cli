@@ -6,20 +6,12 @@
 [![License](http://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
 ## Development
-To build and run this cmd, you'll need:
-- go
-- dep
-
-### Dependencies
-First fetch the vendors by running:
-```
-$ dep ensure
-```
+To build and run this cmd, you'll need go (1.11.x) with mod support enabled `export GO111MODULE=on`
 
 ### Running
 To run:
 ```
-go run cmd/dynamodbcopy/main.go
+go run cmd/main.go
 ```
 Alternatively, you can easily build the binary by:
 ```
