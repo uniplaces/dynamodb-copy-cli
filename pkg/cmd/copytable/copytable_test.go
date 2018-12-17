@@ -176,9 +176,13 @@ func TestSetAndBindFlags_Default(t *testing.T) {
 	cmd := &cobra.Command{}
 	config := viper.New()
 
-	err := copytable.SetAndBindFlags(cmd, config)
+	err := copytable.SetAndBindFlags(cmd.Flags(), config)
 
 	require.Nil(t, err)
 
 	assert.Equal(t, 4, len(config.AllSettings()))
+	assert.Equal(t, "", config.GetString("source-profile"))
+	assert.Equal(t, "", config.GetString("target-profile"))
+	assert.Equal(t, 0, config.GetInt("read-units"))
+	assert.Equal(t, 0, config.GetInt("write-units"))
 }

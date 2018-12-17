@@ -3,6 +3,7 @@ package copytable
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/uniplaces/dynamodbcopy"
 	"log"
@@ -33,20 +34,20 @@ func New(config *viper.Viper) *cobra.Command {
 		},
 	}
 
-	if err := SetAndBindFlags(cmd, config); err != nil {
+	if err := SetAndBindFlags(cmd.Flags(), config); err != nil {
 		panic(err)
 	}
 
 	return cmd
 }
 
-func SetAndBindFlags(cmd *cobra.Command, config *viper.Viper) error {
-	cmd.Flags().StringP("source-profile", "s", "", "Set the profile to use for the source table")
-	cmd.Flags().StringP("target-profile", "t", "", "Set the profile to use for the target table")
-	cmd.Flags().IntP("read-units", "r", 0, "Set the read provisioned capacity for the source table")
-	cmd.Flags().IntP("write-units", "w", 0, "Set the write provisioned capacity for the target table")
+func SetAndBindFlags(flagSet *pflag.FlagSet, config *viper.Viper) error {
+	flagSet.StringP("source-profile", "s", "", "Set the profile to use for the source table")
+	flagSet.StringP("target-profile", "t", "", "Set the profile to use for the target table")
+	flagSet.IntP("read-units", "r", 0, "Set the read provisioned capacity for the source table")
+	flagSet.IntP("write-units", "w", 0, "Set the write provisioned capacity for the target table")
 
-	return config.BindPFlags(cmd.Flags())
+	return config.BindPFlags(flagSet)
 }
 
 func Run(service dynamodbcopy.DynamoDBCopy) error {
