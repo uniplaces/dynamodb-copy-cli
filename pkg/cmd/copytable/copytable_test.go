@@ -2,6 +2,8 @@ package copytable_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/magiconair/properties/assert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -9,7 +11,6 @@ import (
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 	"github.com/uniplaces/dynamodbcopy/pkg/cmd/copytable"
-	"testing"
 )
 
 func TestRun_FetchProvisioningError(t *testing.T) {
