@@ -88,7 +88,6 @@ func TestRun_CopyError(t *testing.T) {
 		Return(expectedError).
 		Once()
 
-
 	err := copytable.Run(service)
 
 	require.NotNil(t, err)
