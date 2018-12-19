@@ -51,7 +51,7 @@ func New(config *viper.Viper) *cobra.Command {
 	return cmd
 }
 
-func wireDependencies(config *viper.Viper) (dynamodbcopy.DynamoDBCopy, error) {
+func wireDependencies(config *viper.Viper) (dynamodbcopy.Copier, error) {
 	copyConfig, err := dynamodbcopy.NewConfig(*config)
 	if err != nil {
 		return nil, err
@@ -80,14 +80,17 @@ func SetAndBindFlags(flagSet *pflag.FlagSet, config *viper.Viper) error {
 	return config.BindPFlags(flagSet)
 }
 
-func RunCopyTable(service dynamodbcopy.DynamoDBCopy) error {
-	initialProvision, err := service.FetchProvisioning()
+func RunCopyTable(service dynamodbcopy.Copier) error {
+	provisioning, err := service.FetchProvisioning()
 	if err != nil {
 		return err
 	}
 
-	copyProvision := service.CalculateCopyProvisioning(initialProvision)
-	if err := service.UpdateProvisioning(copyProvision); err != nil {
+	if !provisioning.NeedsUpdate() {
+		return service.Copy()
+	}
+
+	if err := service.UpdateProvisioning(provisioning); err != nil {
 		return err
 	}
 
@@ -95,5 +98,5 @@ func RunCopyTable(service dynamodbcopy.DynamoDBCopy) error {
 		return err
 	}
 
-	return service.UpdateProvisioning(initialProvision)
+	return service.UpdateProvisioning(provisioning)
 }

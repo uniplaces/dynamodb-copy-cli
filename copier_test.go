@@ -18,10 +18,7 @@ func TestFetchProvisioning(t *testing.T) {
 	srcDescription := getTableDescription("src-table-name")
 	trgDescription := getTableDescription("trg-table-name")
 
-	expectedTableDescriptions := dynamodbcopy.TablesDescription{
-		Source: *srcDescription,
-		Target: *trgDescription,
-	}
+	expectedTableDescriptions := dynamodbcopy.NewTablesDescription(*srcDescription, *trgDescription)
 
 	srcService := &mocks.DynamoDBService{}
 	srcService.
@@ -105,6 +102,6 @@ func TestFetchProvisioning_TrgError(t *testing.T) {
 
 func getTableDescription(table string) *dynamodb.TableDescription {
 	return &dynamodb.TableDescription{
-		TableName: aws.String(table),
+		TableName:             aws.String(table),
 	}
 }
