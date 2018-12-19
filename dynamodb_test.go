@@ -2,7 +2,6 @@ package dynamodbcopy_test
 
 import (
 	"errors"
-	"log"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -145,7 +144,6 @@ func TestWaitForReadyTable_OnFirstAttempt(t *testing.T) {
 	err := service.WaitForReadyTable()
 
 	require.Nil(t, err)
-	log.Fatal(called)
 	assert.Equal(t, 0, called)
 
 	api.AssertExpectations(t)
