@@ -64,7 +64,7 @@ func (db dynamoDB) DescribeTable() (*dynamodb.TableDescription, error) {
 func (db dynamoDB) UpdateCapacity(read, write int64) error {
 	if read == 0 || write == 0 {
 		return fmt.Errorf(
-			"invalid update capacity with read %d and write %d: capacity units must be greater than 0",
+			"invalid update capacity read %d & write %d: capacity units must be greater than 0",
 			read,
 			write,
 		)
