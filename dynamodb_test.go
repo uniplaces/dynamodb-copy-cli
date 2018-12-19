@@ -2,6 +2,7 @@ package dynamodbcopy_test
 
 import (
 	"errors"
+	"log"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,18 +14,21 @@ import (
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )
 
+const (
+	expectedTableName = "test-table-name"
+)
+
 func TestDescribeTable(t *testing.T) {
 	api := &mocks.DynamoDBAPI{}
 
-	expectedTableName := "table-name"
-	expectedTableDescription := getDescribeTableOutput(expectedTableName)
+	expectedTableDescription := getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
 		Return(expectedTableDescription, nil).
 		Once()
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api)
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
 
 	description, err := service.DescribeTable()
 	require.Nil(t, err)
@@ -37,7 +41,6 @@ func TestDescribeTable(t *testing.T) {
 func TestDescribeTable_Error(t *testing.T) {
 	api := &mocks.DynamoDBAPI{}
 
-	expectedTableName := "table-name"
 	expectedError := errors.New("error")
 
 	api.
@@ -45,7 +48,7 @@ func TestDescribeTable_Error(t *testing.T) {
 		Return(nil, expectedError).
 		Once()
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api)
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
 
 	_, err := service.DescribeTable()
 	require.NotNil(t, err)
@@ -55,10 +58,139 @@ func TestDescribeTable_Error(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
-func getDescribeTableOutput(tableName string) *dynamodb.DescribeTableOutput {
+func TestUpdateCapacity_ZeroError(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	err := service.UpdateCapacity(0, 10)
+
+	require.NotNil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestUpdateCapacity_Error(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	expectedError := errors.New("error")
+
+	api.
+		On("UpdateTable", mock.AnythingOfType("*dynamodb.UpdateTableInput")).
+		Return(nil, expectedError).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	err := service.UpdateCapacity(10, 10)
+
+	require.NotNil(t, err)
+	assert.Equal(t, expectedError, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestUpdateCapacity(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	api.
+		On("UpdateTable", mock.AnythingOfType("*dynamodb.UpdateTableInput")).
+		Return(&dynamodb.UpdateTableOutput{}, nil).
+		Once()
+
+	api.
+		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
+		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	err := service.UpdateCapacity(10, 10)
+
+	require.Nil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestWaitForReadyTable_Error(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	expectedError := errors.New("error")
+	api.
+		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
+		Return(nil, expectedError).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	err := service.WaitForReadyTable()
+
+	require.NotNil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestWaitForReadyTable_OnFirstAttempt(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	called := 0
+	sleeperFn := func(elapsedMilliseconds int) int {
+		called++
+
+		return called
+	}
+
+	api.
+		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
+		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
+	err := service.WaitForReadyTable()
+
+	require.Nil(t, err)
+	log.Fatal(called)
+	assert.Equal(t, 0, called)
+
+	api.AssertExpectations(t)
+}
+
+func TestWaitForReadyTable_OnMultipleAttempts(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	attempts := 4
+
+	called := 0
+	sleeperFn := func(elapsedMilliseconds int) int {
+		called++
+
+		return elapsedMilliseconds
+	}
+
+	api.
+		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
+		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusCreating), nil).
+		Times(attempts)
+
+	api.
+		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
+		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
+	err := service.WaitForReadyTable()
+
+	require.Nil(t, err)
+	assert.Equal(t, attempts, called)
+
+	api.AssertExpectations(t)
+}
+
+func getDescribeTableOutput(tableName, status string) *dynamodb.DescribeTableOutput {
 	return &dynamodb.DescribeTableOutput{
 		Table: &dynamodb.TableDescription{
-			TableName: aws.String(tableName),
+			TableName:   aws.String(tableName),
+			TableStatus: aws.String(status),
 		},
 	}
+}
+
+func testSleeper(ms int) int {
+	return ms // skip
 }

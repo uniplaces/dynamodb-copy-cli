@@ -60,10 +60,12 @@ func wireDependencies(config *viper.Viper) (dynamodbcopy.DynamoDBCopy, error) {
 	srcTableService := dynamodbcopy.NewDynamoDBService(
 		config.GetString(srcTableKey),
 		dynamodbcopy.NewDynamoDBAPI(config.GetString(srcProfileKey)),
+		dynamodbcopy.RandomSleeper,
 	)
 	trgTableService := dynamodbcopy.NewDynamoDBService(
 		config.GetString(trgTableKey),
 		dynamodbcopy.NewDynamoDBAPI(config.GetString(trgProfileKey)),
+		dynamodbcopy.RandomSleeper,
 	)
 
 	return dynamodbcopy.NewDynamoDBCopy(copyConfig, srcTableService, trgTableService)
