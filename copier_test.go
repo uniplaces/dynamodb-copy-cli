@@ -102,6 +102,6 @@ func TestFetchProvisioning_TrgError(t *testing.T) {
 
 func getTableDescription(table string) *dynamodb.TableDescription {
 	return &dynamodb.TableDescription{
-		TableName:             aws.String(table),
+		TableName: aws.String(table),
 	}
 }
