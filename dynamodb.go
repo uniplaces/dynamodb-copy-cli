@@ -16,7 +16,7 @@ type DynamoDBAPI interface {
 
 type DynamoDBService interface {
 	DescribeTable() (*dynamodb.TableDescription, error)
-	UpdateCapacity(read, write int64) error
+	UpdateCapacity(capacity Capacity) error
 	WaitForReadyTable() error
 }
 
@@ -61,7 +61,10 @@ func (db dynamoDB) DescribeTable() (*dynamodb.TableDescription, error) {
 	return output.Table, nil
 }
 
-func (db dynamoDB) UpdateCapacity(read, write int64) error {
+func (db dynamoDB) UpdateCapacity(capacity Capacity) error {
+	read := capacity.Read
+	write := capacity.Write
+
 	if read == 0 || write == 0 {
 		return fmt.Errorf(
 			"invalid update capacity read %d & write %d: capacity units must be greater than 0",

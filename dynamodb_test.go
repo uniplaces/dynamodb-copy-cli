@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/uniplaces/dynamodbcopy"
@@ -61,7 +61,7 @@ func TestUpdateCapacity_ZeroError(t *testing.T) {
 	api := &mocks.DynamoDBAPI{}
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(0, 10)
+	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 0, Write: 10})
 
 	require.NotNil(t, err)
 
@@ -79,7 +79,7 @@ func TestUpdateCapacity_Error(t *testing.T) {
 		Once()
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(10, 10)
+	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 10, Write: 10})
 
 	require.NotNil(t, err)
 	assert.Equal(t, expectedError, err)
@@ -101,7 +101,7 @@ func TestUpdateCapacity(t *testing.T) {
 		Once()
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(10, 10)
+	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 10, Write: 10})
 
 	require.Nil(t, err)
 

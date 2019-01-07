@@ -81,16 +81,12 @@ func SetAndBindFlags(flagSet *pflag.FlagSet, config *viper.Viper) error {
 }
 
 func RunCopyTable(service dynamodbcopy.Copier) error {
-	provisioning, err := service.FetchProvisioning()
+	initialProvisioning, err := service.FetchProvisioning()
 	if err != nil {
 		return err
 	}
 
-	if !provisioning.NeedsUpdate() {
-		return service.Copy()
-	}
-
-	if err := service.UpdateProvisioning(provisioning); err != nil {
+	if _, err = service.UpdateProvisioning(initialProvisioning); err != nil {
 		return err
 	}
 
@@ -98,5 +94,9 @@ func RunCopyTable(service dynamodbcopy.Copier) error {
 		return err
 	}
 
-	return service.UpdateProvisioning(provisioning)
+	if _, err := service.UpdateProvisioning(initialProvisioning); err != nil {
+		return err
+	}
+
+	return nil
 }

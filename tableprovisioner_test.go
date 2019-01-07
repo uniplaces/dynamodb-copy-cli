@@ -1,1 +1,0 @@
-package dynamodbcopy_test

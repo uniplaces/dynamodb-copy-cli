@@ -24,16 +24,14 @@ func (_m *Copier) Copy() error {
 }
 
 // FetchProvisioning provides a mock function with given fields:
-func (_m *Copier) FetchProvisioning() (dynamodbcopy.TableProvisioner, error) {
+func (_m *Copier) FetchProvisioning() (dynamodbcopy.Provisioning, error) {
 	ret := _m.Called()
 
-	var r0 dynamodbcopy.TableProvisioner
-	if rf, ok := ret.Get(0).(func() dynamodbcopy.TableProvisioner); ok {
+	var r0 dynamodbcopy.Provisioning
+	if rf, ok := ret.Get(0).(func() dynamodbcopy.Provisioning); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(dynamodbcopy.TableProvisioner)
-		}
+		r0 = ret.Get(0).(dynamodbcopy.Provisioning)
 	}
 
 	var r1 error
@@ -46,16 +44,23 @@ func (_m *Copier) FetchProvisioning() (dynamodbcopy.TableProvisioner, error) {
 	return r0, r1
 }
 
-// UpdateProvisioning provides a mock function with given fields: provisioner
-func (_m *Copier) UpdateProvisioning(provisioner dynamodbcopy.TableProvisioner) error {
-	ret := _m.Called(provisioner)
+// UpdateProvisioning provides a mock function with given fields: newProvisioning
+func (_m *Copier) UpdateProvisioning(newProvisioning dynamodbcopy.Provisioning) (dynamodbcopy.Provisioning, error) {
+	ret := _m.Called(newProvisioning)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(dynamodbcopy.TableProvisioner) error); ok {
-		r0 = rf(provisioner)
+	var r0 dynamodbcopy.Provisioning
+	if rf, ok := ret.Get(0).(func(dynamodbcopy.Provisioning) dynamodbcopy.Provisioning); ok {
+		r0 = rf(newProvisioning)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(dynamodbcopy.Provisioning)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(dynamodbcopy.Provisioning) error); ok {
+		r1 = rf(newProvisioning)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }

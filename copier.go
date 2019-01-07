@@ -1,8 +1,8 @@
 package dynamodbcopy
 
 type Copier interface {
-	FetchProvisioning() (TableProvisioner, error)
-	UpdateProvisioning(provisioner TableProvisioner) error
+	FetchProvisioning() (Provisioning, error)
+	UpdateProvisioning(provisioning Provisioning) (Provisioning, error)
 	Copy() error
 }
 
@@ -20,24 +20,45 @@ func NewDynamoDBCopy(copyConfig Config, srcTableService, trgTableService DynamoD
 	}, nil
 }
 
-func (dc dynamodbCopy) FetchProvisioning() (TableProvisioner, error) {
+func (dc dynamodbCopy) FetchProvisioning() (Provisioning, error) {
 	srcDescription, err := dc.srcTable.DescribeTable()
 	if err != nil {
-		return nil, err
+		return Provisioning{}, err
 	}
 
 	trgDescription, err := dc.trgTable.DescribeTable()
 	if err != nil {
-		return nil, err
+		return Provisioning{}, err
 	}
 
-	return NewTablesDescription(*srcDescription, *trgDescription), nil
+	return NewProvisioning(*srcDescription, *trgDescription), nil
 }
 
-func (dc dynamodbCopy) UpdateProvisioning(descriptions TableProvisioner) error {
-	return nil
+func (dc dynamodbCopy) UpdateProvisioning(provisioning Provisioning) (Provisioning, error) {
+	currentProvisioning, err := dc.FetchProvisioning()
+	if err != nil {
+		return Provisioning{}, err
+	}
+
+	if needsProvisioningUpdate(currentProvisioning.SourceCapacity(), provisioning.SourceCapacity()) {
+		if err := dc.srcTable.UpdateCapacity(provisioning.SourceCapacity()); err != nil {
+			return Provisioning{}, err
+		}
+	}
+
+	if needsProvisioningUpdate(currentProvisioning.TargetCapacity(), provisioning.TargetCapacity()) {
+		if err := dc.trgTable.UpdateCapacity(provisioning.TargetCapacity()); err != nil {
+			return Provisioning{}, err
+		}
+	}
+
+	return provisioning, nil
 }
 
 func (dc dynamodbCopy) Copy() error {
 	return nil
+}
+
+func needsProvisioningUpdate(c1, c2 Capacity) bool {
+	return c1.Read != c2.Read || c1.Write != c2.Write
 }

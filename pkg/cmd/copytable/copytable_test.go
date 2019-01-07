@@ -4,15 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 	"github.com/uniplaces/dynamodbcopy/pkg/cmd/copytable"
 )
 
-func TestRun_FetchProvisioningError(t *testing.T) {
+func TestRunCopyTable_FetchProvisioningError(t *testing.T) {
 	t.Parallel()
 
 	service := &mocks.Copier{}
@@ -20,7 +21,7 @@ func TestRun_FetchProvisioningError(t *testing.T) {
 	expectedError := errors.New("error")
 	service.
 		On("FetchProvisioning").
-		Return(nil, expectedError).
+		Return(dynamodbcopy.Provisioning{}, expectedError).
 		Once()
 
 	err := copytable.RunCopyTable(service)
@@ -31,26 +32,21 @@ func TestRun_FetchProvisioningError(t *testing.T) {
 	service.AssertExpectations(t)
 }
 
-func TestRun_UpdateProvisioningError(t *testing.T) {
+func TestRunCopyTable_UpdateProvisioningError(t *testing.T) {
 	t.Parallel()
 
-	service := &mocks.Copier{}
-	provisioning := &mocks.TableProvisioner{}
-
 	expectedError := errors.New("error")
+	provisioning := dynamodbcopy.Provisioning{}
+
+	service := &mocks.Copier{}
 	service.
 		On("FetchProvisioning").
 		Return(provisioning, nil).
 		Once()
 
-	provisioning.
-		On("NeedsUpdate").
-		Return(true).
-		Once()
-
 	service.
 		On("UpdateProvisioning", provisioning).
-		Return(expectedError).
+		Return(dynamodbcopy.Provisioning{}, expectedError).
 		Once()
 
 	err := copytable.RunCopyTable(service)
@@ -59,29 +55,23 @@ func TestRun_UpdateProvisioningError(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 
 	service.AssertExpectations(t)
-	provisioning.AssertExpectations(t)
 }
 
-func TestRun_CopyError(t *testing.T) {
+func TestRunCopyTable_CopyError(t *testing.T) {
 	t.Parallel()
 
-	service := &mocks.Copier{}
-	provisioning := &mocks.TableProvisioner{}
-
 	expectedError := errors.New("error")
+	provisioning := dynamodbcopy.Provisioning{}
+
+	service := &mocks.Copier{}
 	service.
 		On("FetchProvisioning").
 		Return(provisioning, nil).
 		Once()
 
-	provisioning.
-		On("NeedsUpdate").
-		Return(true).
-		Once()
-
 	service.
 		On("UpdateProvisioning", provisioning).
-		Return(nil).
+		Return(dynamodbcopy.Provisioning{}, nil).
 		Once()
 
 	service.
@@ -95,30 +85,23 @@ func TestRun_CopyError(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 
 	service.AssertExpectations(t)
-	provisioning.AssertExpectations(t)
 }
 
-func TestRun_UpdateProvisioningEndError(t *testing.T) {
+func TestRunCopyTable_RestoreProvisioningError(t *testing.T) {
 	t.Parallel()
 
-	service := &mocks.Copier{}
-	provisioning := &mocks.TableProvisioner{}
-
 	expectedError := errors.New("error")
+	provisioning := dynamodbcopy.Provisioning{}
 
+	service := &mocks.Copier{}
 	service.
 		On("FetchProvisioning").
 		Return(provisioning, nil).
 		Once()
 
-	provisioning.
-		On("NeedsUpdate").
-		Return(true).
-		Once()
-
 	service.
 		On("UpdateProvisioning", provisioning).
-		Return(nil).
+		Return(dynamodbcopy.Provisioning{}, nil).
 		Once()
 
 	service.
@@ -128,7 +111,7 @@ func TestRun_UpdateProvisioningEndError(t *testing.T) {
 
 	service.
 		On("UpdateProvisioning", provisioning).
-		Return(expectedError).
+		Return(dynamodbcopy.Provisioning{}, expectedError).
 		Once()
 
 	err := copytable.RunCopyTable(service)
@@ -137,33 +120,32 @@ func TestRun_UpdateProvisioningEndError(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 
 	service.AssertExpectations(t)
-	provisioning.AssertExpectations(t)
 }
 
-func TestRun_CopyWithProvisionUpdate(t *testing.T) {
+func TestRunCopyTable(t *testing.T) {
 	t.Parallel()
 
-	service := &mocks.Copier{}
-	provisioning := &mocks.TableProvisioner{}
+	provisioning := dynamodbcopy.Provisioning{}
 
+	service := &mocks.Copier{}
 	service.
 		On("FetchProvisioning").
 		Return(provisioning, nil).
 		Once()
 
-	provisioning.
-		On("NeedsUpdate").
-		Return(true).
-		Once()
-
 	service.
 		On("UpdateProvisioning", provisioning).
-		Return(nil).
-		Twice()
+		Return(dynamodbcopy.Provisioning{}, nil).
+		Once()
 
 	service.
 		On("Copy").
 		Return(nil).
+		Once()
+
+	service.
+		On("UpdateProvisioning", provisioning).
+		Return(dynamodbcopy.Provisioning{}, nil).
 		Once()
 
 	err := copytable.RunCopyTable(service)
@@ -171,36 +153,6 @@ func TestRun_CopyWithProvisionUpdate(t *testing.T) {
 	require.Nil(t, err)
 
 	service.AssertExpectations(t)
-	provisioning.AssertExpectations(t)
-}
-
-func TestRun_CopyNoProvisionUpdate(t *testing.T) {
-	t.Parallel()
-
-	service := &mocks.Copier{}
-	provisioning := &mocks.TableProvisioner{}
-
-	service.
-		On("FetchProvisioning").
-		Return(provisioning, nil).
-		Once()
-
-	provisioning.
-		On("NeedsUpdate").
-		Return(false).
-		Once()
-
-	service.
-		On("Copy").
-		Return(nil).
-		Once()
-
-	err := copytable.RunCopyTable(service)
-
-	require.Nil(t, err)
-
-	service.AssertExpectations(t)
-	provisioning.AssertExpectations(t)
 }
 
 func TestSetAndBindFlags_Default(t *testing.T) {
