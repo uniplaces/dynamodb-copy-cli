@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 )
 
+const maxBatchWriteSize = 25
+
 // DynamoDBAPI just a wrapper over aws-sdk dynamodbiface.DynamoDBAPI interface for mocking purposes
 type DynamoDBAPI interface {
 	dynamodbiface.DynamoDBAPI
@@ -18,6 +20,7 @@ type DynamoDBService interface {
 	DescribeTable() (*dynamodb.TableDescription, error)
 	UpdateCapacity(capacity Capacity) error
 	WaitForReadyTable() error
+	BatchWrite(requests []*dynamodb.WriteRequest) error
 }
 
 type dynamoDBSerivce struct {
@@ -87,6 +90,56 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 	}
 
 	return db.WaitForReadyTable()
+}
+
+func (db dynamoDBSerivce) BatchWrite(requests []*dynamodb.WriteRequest) error {
+	if len(requests) == 0 {
+		return nil
+	}
+
+	var remainingRequests []*dynamodb.WriteRequest
+	for _, request := range requests {
+		if len(remainingRequests) == maxBatchWriteSize {
+			if err := db.batchWriteItem(remainingRequests); err != nil {
+				return err
+			}
+
+			remainingRequests = nil
+		}
+
+		remainingRequests = append(remainingRequests, request)
+	}
+
+	if len(remainingRequests) == 0 {
+		return nil
+	}
+
+	return db.batchWriteItem(remainingRequests)
+}
+
+func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) error {
+	tableName := db.tableName
+
+	writeRequests := requests
+	for {
+		batchInput := &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]*dynamodb.WriteRequest{
+				tableName: writeRequests,
+			},
+		}
+
+		output, err := db.api.BatchWriteItem(batchInput)
+		if err != nil {
+			return err
+		}
+
+		writeRequests = output.UnprocessedItems[tableName]
+		if len(writeRequests) == 0 {
+			break
+		}
+	}
+
+	return nil
 }
 
 func (db dynamoDBSerivce) WaitForReadyTable() error {

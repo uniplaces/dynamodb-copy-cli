@@ -2,6 +2,7 @@ package dynamodbcopy_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,7 +21,7 @@ const (
 func TestDescribeTable(t *testing.T) {
 	api := &mocks.DynamoDBAPI{}
 
-	expectedTableDescription := getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
+	expectedTableDescription := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
@@ -97,7 +98,7 @@ func TestUpdateCapacity(t *testing.T) {
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
 		Once()
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
@@ -137,7 +138,7 @@ func TestWaitForReadyTable_OnFirstAttempt(t *testing.T) {
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
 		Once()
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
@@ -163,12 +164,12 @@ func TestWaitForReadyTable_OnMultipleAttempts(t *testing.T) {
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusCreating), nil).
+		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusCreating), nil).
 		Times(attempts)
 
 	api.
 		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(getDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
+		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
 		Once()
 
 	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
@@ -180,7 +181,134 @@ func TestWaitForReadyTable_OnMultipleAttempts(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
-func getDescribeTableOutput(tableName, status string) *dynamodb.DescribeTableOutput {
+func TestBatchWrite_Error(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	expectedError := errors.New("error")
+	batchInput := buildBatchWriteItemInput(10)
+
+	api.
+		On("BatchWriteItem", &batchInput).
+		Return(nil, expectedError).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+	err := service.BatchWrite(batchInput.RequestItems[expectedTableName])
+
+	require.NotNil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestBatchWrite_NoItems(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	batchInput := buildBatchWriteItemInput(0)
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	err := service.BatchWrite(batchInput.RequestItems[expectedTableName])
+
+	require.Nil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestBatchWrite_LessThanMaxBatchSize(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	batchInput := buildBatchWriteItemInput(24)
+
+	api.
+		On("BatchWriteItem", &batchInput).
+		Return(&dynamodb.BatchWriteItemOutput{}, nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+	err := service.BatchWrite(batchInput.RequestItems[expectedTableName])
+
+	require.Nil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestBatchWrite_GreaterThanMaxBatchSize(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	firstBatchInput := buildBatchWriteItemInput(25)
+	secondBatchInput := buildBatchWriteItemInput(24)
+
+	api.
+		On("BatchWriteItem", &firstBatchInput).
+		Return(&dynamodb.BatchWriteItemOutput{}, nil).
+		Once()
+
+	api.
+		On("BatchWriteItem", &secondBatchInput).
+		Return(&dynamodb.BatchWriteItemOutput{}, nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+	requests := append(
+		firstBatchInput.RequestItems[expectedTableName],
+		secondBatchInput.RequestItems[expectedTableName]...,
+	)
+	err := service.BatchWrite(requests)
+
+	require.Nil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func TestBatchWrite_UnprocessedItems(t *testing.T) {
+	api := &mocks.DynamoDBAPI{}
+
+	batchInput := buildBatchWriteItemInput(25)
+
+	api.
+		On("BatchWriteItem", &batchInput).
+		Return(&dynamodb.BatchWriteItemOutput{UnprocessedItems: batchInput.RequestItems}, nil).
+		Once()
+
+	api.
+		On("BatchWriteItem", &batchInput).
+		Return(&dynamodb.BatchWriteItemOutput{}, nil).
+		Once()
+
+	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+	err := service.BatchWrite(batchInput.RequestItems[expectedTableName])
+
+	require.Nil(t, err)
+
+	api.AssertExpectations(t)
+}
+
+func buildBatchWriteItemInput(itemCount int) dynamodb.BatchWriteItemInput {
+	items := map[string][]*dynamodb.WriteRequest{}
+
+	requests := make([]*dynamodb.WriteRequest, itemCount)
+	for i := 0; i < itemCount; i++ {
+		requests[i] = &dynamodb.WriteRequest{
+			PutRequest: &dynamodb.PutRequest{
+				Item: map[string]*dynamodb.AttributeValue{
+					"id": {
+						S: aws.String(fmt.Sprintf("%d", i)),
+					},
+				},
+			},
+		}
+	}
+
+	items[expectedTableName] = requests
+
+	return dynamodb.BatchWriteItemInput{
+		RequestItems: items,
+	}
+}
+
+func buildDescribeTableOutput(tableName, status string) *dynamodb.DescribeTableOutput {
 	return &dynamodb.DescribeTableOutput{
 		Table: &dynamodb.TableDescription{
 			TableName:   aws.String(tableName),

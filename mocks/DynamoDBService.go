@@ -10,6 +10,20 @@ type DynamoDBService struct {
 	mock.Mock
 }
 
+// BatchWrite provides a mock function with given fields: requests
+func (_m *DynamoDBService) BatchWrite(requests []*dynamodb.WriteRequest) error {
+	ret := _m.Called(requests)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]*dynamodb.WriteRequest) error); ok {
+		r0 = rf(requests)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DescribeTable provides a mock function with given fields:
 func (_m *DynamoDBService) DescribeTable() (*dynamodb.TableDescription, error) {
 	ret := _m.Called()
