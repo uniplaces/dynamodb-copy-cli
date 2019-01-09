@@ -285,6 +285,88 @@ func TestBatchWrite_UnprocessedItems(t *testing.T) {
 	api.AssertExpectations(t)
 }
 
+func TestScan(t *testing.T) {
+	t.Parallel()
+
+	expectedError := errors.New("scan error")
+
+	testCases := []struct {
+		subTestName   string
+		mocker        func(api *mocks.DynamoDBAPI)
+		totalSegments int64
+		segment       int64
+		expectedError error
+	}{
+		{
+			"Error",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(expectedError)
+			},
+			1,
+			0,
+			expectedError,
+		},
+		{
+			"TotalSegmentsError",
+			func(api *mocks.DynamoDBAPI) {},
+			0,
+			0,
+			errors.New("totalSegments has to be greater than 0"),
+		},
+		{
+			"TotalSegmentsIsOne",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(nil)
+			},
+			1,
+			0,
+			nil,
+		},
+		{
+			"TotalSegmentsIsGreaterThanOne",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("ScanPages", buildScanInput(5, 2), mock.Anything).Return(nil)
+			},
+			5,
+			2,
+			nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				api := &mocks.DynamoDBAPI{}
+
+				testCase.mocker(api)
+
+				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+				err := service.Scan(make(dynamodbcopy.ItemsChan), testCase.totalSegments, testCase.segment)
+
+				assert.Equal(t, testCase.expectedError, err)
+
+				api.AssertExpectations(st)
+			},
+		)
+	}
+}
+
+func buildScanInput(totalSegments, segment int64) *dynamodb.ScanInput {
+	if totalSegments < 2 {
+		return &dynamodb.ScanInput{
+			TableName: aws.String(expectedTableName),
+		}
+	}
+
+	return &dynamodb.ScanInput{
+		TableName:     aws.String(expectedTableName),
+		TotalSegments: aws.Int64(totalSegments),
+		Segment:       aws.Int64(segment),
+	}
+}
+
 func buildBatchWriteItemInput(itemCount int) dynamodb.BatchWriteItemInput {
 	items := map[string][]*dynamodb.WriteRequest{}
 

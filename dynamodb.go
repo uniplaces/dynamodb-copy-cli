@@ -1,6 +1,7 @@
 package dynamodbcopy
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,6 +22,7 @@ type DynamoDBService interface {
 	UpdateCapacity(capacity Capacity) error
 	WaitForReadyTable() error
 	BatchWrite(requests []*dynamodb.WriteRequest) error
+	Scan(items ItemsChan, totalSegments, segment int64) error
 }
 
 type dynamoDBSerivce struct {
@@ -159,4 +161,32 @@ func (db dynamoDBSerivce) WaitForReadyTable() error {
 	}
 
 	return nil
+}
+
+type ItemsChan chan map[string]*dynamodb.AttributeValue
+
+func (db dynamoDBSerivce) Scan(items ItemsChan, totalSegments, segment int64) error {
+	if totalSegments == 0 {
+		return errors.New("totalSegments has to be greater than 0")
+	}
+
+	input := dynamodb.ScanInput{
+		TableName: aws.String(db.tableName),
+	}
+
+	if totalSegments > 1 {
+		input.SetSegment(segment)
+		input.SetTotalSegments(totalSegments)
+	}
+
+	return db.api.ScanPages(
+		&input,
+		func(output *dynamodb.ScanOutput, b bool) bool {
+			for _, item := range output.Items {
+				items <- item
+			}
+
+			return !b
+		},
+	)
 }
