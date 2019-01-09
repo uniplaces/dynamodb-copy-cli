@@ -72,7 +72,7 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 
 	if read == 0 || write == 0 {
 		return fmt.Errorf(
-			"invalid update capacity read %d & write %d: capacity units must be greater than 0",
+			"invalid update capacity read %d, write %d: capacity units must be greater than 0",
 			read,
 			write,
 		)
