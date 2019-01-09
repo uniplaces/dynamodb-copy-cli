@@ -20,7 +20,7 @@ type DynamoDBService interface {
 	WaitForReadyTable() error
 }
 
-type dynamoDB struct {
+type dynamoDBSerivce struct {
 	tableName string
 	api       DynamoDBAPI
 	sleep     Sleeper
@@ -45,10 +45,10 @@ func NewDynamoDBAPI(profile string) DynamoDBAPI {
 }
 
 func NewDynamoDBService(tableName string, api DynamoDBAPI, sleepFn Sleeper) DynamoDBService {
-	return dynamoDB{tableName, api, sleepFn}
+	return dynamoDBSerivce{tableName, api, sleepFn}
 }
 
-func (db dynamoDB) DescribeTable() (*dynamodb.TableDescription, error) {
+func (db dynamoDBSerivce) DescribeTable() (*dynamodb.TableDescription, error) {
 	input := &dynamodb.DescribeTableInput{
 		TableName: aws.String(db.tableName),
 	}
@@ -61,7 +61,7 @@ func (db dynamoDB) DescribeTable() (*dynamodb.TableDescription, error) {
 	return output.Table, nil
 }
 
-func (db dynamoDB) UpdateCapacity(capacity Capacity) error {
+func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 	read := capacity.Read
 	write := capacity.Write
 
@@ -89,7 +89,7 @@ func (db dynamoDB) UpdateCapacity(capacity Capacity) error {
 	return db.WaitForReadyTable()
 }
 
-func (db dynamoDB) WaitForReadyTable() error {
+func (db dynamoDBSerivce) WaitForReadyTable() error {
 	elapsed := 0
 
 	for attempt := 0; ; attempt++ {
