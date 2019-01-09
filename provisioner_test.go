@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )
@@ -17,302 +16,175 @@ const (
 	trgTableName = "trg-table-name"
 )
 
-func TestFetchProvisioning(t *testing.T) {
+func TestFetch(t *testing.T) {
 	t.Parallel()
 
-	srcDescription := buildDefaultTableDescription(srcTableName)
-	trgDescription := buildDefaultTableDescription(trgTableName)
-
-	expectedTableDescriptions := buildProvisioning(srcDescription, trgDescription)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(&trgDescription, nil).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	description, err := provisioner.Fetch()
-	require.Nil(t, err)
-
-	assert.Equal(t, expectedTableDescriptions, description)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestFetchProvisioning_SrcError(t *testing.T) {
-	t.Parallel()
+	srcDefaultDescription := buildDefaultTableDescription(srcTableName)
+	trgDefaultDescription := buildDefaultTableDescription(trgTableName)
 
 	expectedError := errors.New("dynamo errors")
 
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(nil, expectedError).
-		Once()
+	testCases := []struct {
+		subTestName          string
+		mocker               func(srcService, trgService *mocks.DynamoDBService)
+		expectedProvisioning dynamodbcopy.Provisioning
+		expectedError        error
+	}{
+		{
+			"Success",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				trgService.On("DescribeTable").Return(&trgDefaultDescription, nil).Once()
+			},
+			buildProvisioning(srcDefaultDescription, trgDefaultDescription),
+			nil,
+		},
+		{
+			"SrcDescribeError",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(nil, expectedError).Once()
+			},
+			dynamodbcopy.Provisioning{},
+			expectedError,
+		},
+		{
+			"TrgDescribeError",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				trgService.On("DescribeTable").Return(nil, expectedError).Once()
+			},
+			dynamodbcopy.Provisioning{},
+			expectedError,
+		},
+	}
 
-	trgService := &mocks.DynamoDBService{}
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				srcService := &mocks.DynamoDBService{}
+				trgService := &mocks.DynamoDBService{}
 
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
+				testCase.mocker(srcService, trgService)
 
-	_, err := provisioner.Fetch()
-	require.NotNil(t, err)
+				provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
 
-	assert.Equal(t, expectedError, err)
+				fetchedProvisioning, err := provisioner.Fetch()
 
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
+				assert.Equal(t, testCase.expectedProvisioning, fetchedProvisioning)
+				assert.Equal(t, testCase.expectedError, err)
+
+				srcService.AssertExpectations(st)
+				trgService.AssertExpectations(st)
+			},
+		)
+	}
 }
 
-func TestFetchProvisioning_TrgError(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	t.Parallel()
 
-	srcDescription := buildDefaultTableDescription(srcTableName)
+	srcDefaultDescription := buildDefaultTableDescription(srcTableName)
+	trgDefaultDescription := buildDefaultTableDescription(trgTableName)
+
+	srcDescription := buildTableDescription(srcTableName, 10, 10)
+	trgDescription := buildTableDescription(trgTableName, 10, 10)
 
 	expectedError := errors.New("dynamo errors")
 
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
+	testCases := []struct {
+		subTestName          string
+		mocker               func(srcService, trgService *mocks.DynamoDBService)
+		updateProvisioning   dynamodbcopy.Provisioning
+		expectedProvisioning dynamodbcopy.Provisioning
+		expectedError        error
+	}{
+		{
+			"FetchSrcDescribeError",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(nil, expectedError).Once()
+			},
+			dynamodbcopy.Provisioning{},
+			dynamodbcopy.Provisioning{},
+			expectedError,
+		},
+		{
+			"FetchTrgDescribeError",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				trgService.On("DescribeTable").Return(nil, expectedError).Once()
+			},
+			dynamodbcopy.Provisioning{},
+			dynamodbcopy.Provisioning{},
+			expectedError,
+		},
+		{
+			"NoUpdateNeeded",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				trgService.On("DescribeTable").Return(&trgDefaultDescription, nil).Once()
+			},
+			buildProvisioning(srcDefaultDescription, trgDefaultDescription),
+			buildProvisioning(srcDefaultDescription, trgDefaultDescription),
+			nil,
+		},
+		{
+			"SrcUpdateNeeded",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				srcService.On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).Return(nil).Once()
+				trgService.On("DescribeTable").Return(&trgDefaultDescription, nil).Once()
+			},
+			buildProvisioning(srcDescription, trgDefaultDescription),
+			buildProvisioning(srcDescription, trgDefaultDescription),
+			nil,
+		},
+		{
+			"TrgUpdateNeeded",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				trgService.On("DescribeTable").Return(&trgDefaultDescription, nil).Once()
+				trgService.On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).Return(nil).Once()
+			},
+			buildProvisioning(srcDefaultDescription, trgDescription),
+			buildProvisioning(srcDefaultDescription, trgDescription),
+			nil,
+		},
+		{
+			"Update",
+			func(srcService, trgService *mocks.DynamoDBService) {
+				srcService.On("DescribeTable").Return(&srcDefaultDescription, nil).Once()
+				srcService.On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).Return(nil).Once()
+				trgService.On("DescribeTable").Return(&trgDefaultDescription, nil).Once()
+				trgService.On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).Return(nil).Once()
+			},
+			buildProvisioning(srcDescription, trgDescription),
+			buildProvisioning(srcDescription, trgDescription),
+			nil,
+		},
+	}
 
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(nil, expectedError).
-		Once()
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				srcService := &mocks.DynamoDBService{}
+				trgService := &mocks.DynamoDBService{}
 
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
+				testCase.mocker(srcService, trgService)
 
-	_, err := provisioner.Fetch()
-	require.NotNil(t, err)
+				provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
 
-	assert.Equal(t, expectedError, err)
+				fetchedProvisioning, err := provisioner.Update(testCase.updateProvisioning)
 
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
+				assert.Equal(t, testCase.expectedProvisioning, fetchedProvisioning)
+				assert.Equal(t, testCase.expectedError, err)
 
-func TestUpdateProvisioning_FetchSrcError(t *testing.T) {
-	t.Parallel()
-
-	expectedError := errors.New("dynamo errors")
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(nil, expectedError).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	_, err := provisioner.Update(dynamodbcopy.Provisioning{})
-	require.NotNil(t, err)
-
-	assert.Equal(t, expectedError, err)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestUpdateProvisioning_FetchTrgError(t *testing.T) {
-	t.Parallel()
-
-	expectedError := errors.New("dynamo errors")
-
-	srcDescription := buildDefaultTableDescription(srcTableName)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(nil, expectedError).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	_, err := provisioner.Update(dynamodbcopy.Provisioning{})
-	require.NotNil(t, err)
-
-	assert.Equal(t, expectedError, err)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestUpdateProvisioning_NoUpdateNeeded(t *testing.T) {
-	t.Parallel()
-
-	srcDescription := buildDefaultTableDescription(srcTableName)
-	trgDescription := buildDefaultTableDescription(trgTableName)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(&trgDescription, nil).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	provisioning := buildProvisioning(
-		buildDefaultTableDescription(srcTableName),
-		buildDefaultTableDescription(trgTableName),
-	)
-	updatedProvisioning, err := provisioner.Update(provisioning)
-
-	require.Nil(t, err)
-	assert.Equal(t, srcDescription, updatedProvisioning.Source)
-	assert.Equal(t, trgDescription, updatedProvisioning.Target)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestUpdateProvisioning_SrcUpdateNeeded(t *testing.T) {
-	t.Parallel()
-
-	srcDescription := buildDefaultTableDescription(srcTableName)
-	trgDescription := buildDefaultTableDescription(trgTableName)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-	srcService.
-		On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).
-		Return(nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(&trgDescription, nil).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	provisioning := buildProvisioning(
-		buildTableDescription(srcTableName, 10, 10),
-		buildDefaultTableDescription(trgTableName),
-	)
-
-	updatedProvisioning, err := provisioner.Update(provisioning)
-	require.Nil(t, err)
-
-	assert.EqualValues(t, 10, *updatedProvisioning.Source.ProvisionedThroughput.WriteCapacityUnits)
-	assert.EqualValues(t, 10, *updatedProvisioning.Source.ProvisionedThroughput.ReadCapacityUnits)
-	assert.Equal(t, trgDescription, updatedProvisioning.Target)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestUpdateProvisioning_TrgUpdateNeeded(t *testing.T) {
-	t.Parallel()
-
-	srcDescription := buildDefaultTableDescription(srcTableName)
-	trgDescription := buildDefaultTableDescription(trgTableName)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(&trgDescription, nil).
-		Once()
-	trgService.
-		On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).
-		Return(nil).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	provisioning := buildProvisioning(
-		buildDefaultTableDescription(srcTableName),
-		buildTableDescription(trgTableName, 10, 10),
-	)
-
-	updatedProvisioning, err := provisioner.Update(provisioning)
-	require.Nil(t, err)
-
-	assert.EqualValues(t, 10, *updatedProvisioning.Target.ProvisionedThroughput.WriteCapacityUnits)
-	assert.EqualValues(t, 10, *updatedProvisioning.Target.ProvisionedThroughput.ReadCapacityUnits)
-	assert.Equal(t, srcDescription, updatedProvisioning.Source)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
-}
-
-func TestUpdateProvisioning_Update(t *testing.T) {
-	t.Parallel()
-
-	srcDescription := buildDefaultTableDescription(srcTableName)
-	trgDescription := buildDefaultTableDescription(trgTableName)
-
-	srcService := &mocks.DynamoDBService{}
-	srcService.
-		On("DescribeTable").
-		Return(&srcDescription, nil).
-		Once()
-	srcService.
-		On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).
-		Return(nil).
-		Once()
-
-	trgService := &mocks.DynamoDBService{}
-	trgService.
-		On("DescribeTable").
-		Return(&trgDescription, nil).
-		Once()
-	trgService.
-		On("UpdateCapacity", dynamodbcopy.Capacity{Read: 10, Write: 10}).
-		Return(nil).
-		Once()
-
-	provisioner := dynamodbcopy.NewProvisioner(srcService, trgService)
-
-	provisioning := buildProvisioning(
-		buildTableDescription(srcTableName, 10, 10),
-		buildTableDescription(trgTableName, 10, 10),
-	)
-
-	updatedProvisioning, err := provisioner.Update(provisioning)
-	require.Nil(t, err)
-
-	assert.EqualValues(t, 10, *updatedProvisioning.Source.ProvisionedThroughput.WriteCapacityUnits)
-	assert.EqualValues(t, 10, *updatedProvisioning.Source.ProvisionedThroughput.ReadCapacityUnits)
-	assert.EqualValues(t, 10, *updatedProvisioning.Target.ProvisionedThroughput.WriteCapacityUnits)
-	assert.EqualValues(t, 10, *updatedProvisioning.Target.ProvisionedThroughput.ReadCapacityUnits)
-
-	srcService.AssertExpectations(t)
-	trgService.AssertExpectations(t)
+				srcService.AssertExpectations(st)
+				trgService.AssertExpectations(st)
+			},
+		)
+	}
 }
 
 func buildProvisioning(src, trg dynamodb.TableDescription) dynamodbcopy.Provisioning {
