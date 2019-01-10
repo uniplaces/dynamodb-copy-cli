@@ -266,7 +266,6 @@ func TestBatchWrite(t *testing.T) {
 	}
 }
 
-
 func TestScan(t *testing.T) {
 	t.Parallel()
 
