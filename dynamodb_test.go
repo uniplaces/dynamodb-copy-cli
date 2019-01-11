@@ -19,94 +19,116 @@ const (
 )
 
 func TestDescribeTable(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
+	t.Parallel()
 
-	expectedTableDescription := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
+	expectedDescription := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
+	expectedError := errors.New("describeTableError")
 
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(expectedTableDescription, nil).
-		Once()
+	descriptionMock := mock.AnythingOfType("*dynamodb.DescribeTableInput")
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+	testCases := []struct {
+		subTestName         string
+		mocker              func(api *mocks.DynamoDBAPI)
+		expectedError       error
+		expectedDescription *dynamodb.TableDescription
+	}{
+		{
+			"Error",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("DescribeTable", descriptionMock).Return(nil, expectedError).Once()
+			},
+			expectedError,
+			nil,
+		},
+		{
+			"Success",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("DescribeTable", descriptionMock).Return(expectedDescription, nil).Once()
+			},
+			nil,
+			expectedDescription.Table,
+		},
+	}
 
-	description, err := service.DescribeTable()
-	require.Nil(t, err)
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				api := &mocks.DynamoDBAPI{}
 
-	assert.Equal(t, expectedTableDescription.Table, description)
+				testCase.mocker(api)
 
-	api.AssertExpectations(t)
-}
+				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
 
-func TestDescribeTable_Error(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
+				description, err := service.DescribeTable()
 
-	expectedError := errors.New("error")
+				assert.Equal(t, testCase.expectedError, err)
+				assert.Equal(t, testCase.expectedDescription, description)
 
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(nil, expectedError).
-		Once()
-
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-
-	_, err := service.DescribeTable()
-	require.NotNil(t, err)
-
-	assert.Equal(t, expectedError, err)
-
-	api.AssertExpectations(t)
-}
-
-func TestUpdateCapacity_ZeroError(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
-
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 0, Write: 10})
-
-	require.NotNil(t, err)
-
-	api.AssertExpectations(t)
-}
-
-func TestUpdateCapacity_Error(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
-
-	expectedError := errors.New("error")
-
-	api.
-		On("UpdateTable", mock.AnythingOfType("*dynamodb.UpdateTableInput")).
-		Return(nil, expectedError).
-		Once()
-
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 10, Write: 10})
-
-	require.NotNil(t, err)
-	assert.Equal(t, expectedError, err)
-
-	api.AssertExpectations(t)
+				api.AssertExpectations(st)
+			},
+		)
+	}
 }
 
 func TestUpdateCapacity(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
+	t.Parallel()
 
-	api.
-		On("UpdateTable", mock.AnythingOfType("*dynamodb.UpdateTableInput")).
-		Return(&dynamodb.UpdateTableOutput{}, nil).
-		Once()
+	expectedError := errors.New("updateCapacityError")
 
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
-		Once()
+	updateMock := mock.AnythingOfType("*dynamodb.UpdateTableInput")
+	describeMock := mock.AnythingOfType("*dynamodb.DescribeTableInput")
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.UpdateCapacity(dynamodbcopy.Capacity{Read: 10, Write: 10})
+	testCases := []struct {
+		subTestName   string
+		mocker        func(api *mocks.DynamoDBAPI)
+		capacity      dynamodbcopy.Capacity
+		expectedError error
+	}{
+		{
+			"ZeroError",
+			func(api *mocks.DynamoDBAPI) {},
+			dynamodbcopy.Capacity{Read: 0, Write: 10},
+			errors.New("invalid update capacity read 0, write 10: capacity units must be greater than 0"),
+		},
+		{
+			"Error",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("UpdateTable", updateMock).Return(nil, expectedError).Once()
+			},
+			dynamodbcopy.Capacity{Read: 10, Write: 10},
+			expectedError,
+		},
+		{
+			"Update",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("UpdateTable", updateMock).Return(&dynamodb.UpdateTableOutput{}, nil).Once()
+				output := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
+				api.On("DescribeTable", describeMock).Return(output, nil).Once()
+			},
+			dynamodbcopy.Capacity{Read: 10, Write: 10},
+			nil,
+		},
+	}
 
-	require.Nil(t, err)
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				api := &mocks.DynamoDBAPI{}
 
-	api.AssertExpectations(t)
+				testCase.mocker(api)
+
+				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+
+				err := service.UpdateCapacity(testCase.capacity)
+
+				assert.Equal(t, testCase.expectedError, err)
+
+				api.AssertExpectations(st)
+			},
+		)
+	}
 }
 
 func TestWaitForReadyTable_Error(t *testing.T) {
