@@ -234,6 +234,17 @@ func TestBatchWrite(t *testing.T) {
 			nil,
 		},
 		{
+			"GreaterThanMaxBatchSizeWithError",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("BatchWriteItem", &firstBatchInput).Return(nil, expectedError).Once()
+			},
+			append(
+				getItems(firstBatchInput),
+				getItems(secondBatchInput)...,
+			),
+			expectedError,
+		},
+		{
 			"UnprocessedItems",
 			func(api *mocks.DynamoDBAPI) {
 				api.On("BatchWriteItem", &defaultBatchInput).Return(unprocessedOuput, nil).

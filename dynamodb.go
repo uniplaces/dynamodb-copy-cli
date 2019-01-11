@@ -119,10 +119,6 @@ func (db dynamoDBSerivce) BatchWrite(items []DynamoDBItem) error {
 		remainingRequests = append(remainingRequests, request)
 	}
 
-	if len(remainingRequests) == 0 {
-		return nil
-	}
-
 	return db.batchWriteItem(remainingRequests)
 }
 
@@ -130,7 +126,7 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 	tableName := db.tableName
 
 	writeRequests := requests
-	for {
+	for len(writeRequests) != 0 {
 		batchInput := &dynamodb.BatchWriteItemInput{
 			RequestItems: map[string][]*dynamodb.WriteRequest{
 				tableName: writeRequests,
@@ -143,9 +139,6 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 		}
 
 		writeRequests = output.UnprocessedItems[tableName]
-		if len(writeRequests) == 0 {
-			break
-		}
 	}
 
 	return nil
