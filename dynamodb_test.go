@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )
@@ -131,76 +130,74 @@ func TestUpdateCapacity(t *testing.T) {
 	}
 }
 
-func TestWaitForReadyTable_Error(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
+func TestWaitForReadyTable(t *testing.T) {
+	t.Parallel()
 
-	expectedError := errors.New("error")
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(nil, expectedError).
-		Once()
+	expectedError := errors.New("waitForReadyTableError")
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
-	err := service.WaitForReadyTable()
+	activeDescribeOutput := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive)
+	creatingDescribeOutput := buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusCreating)
 
-	require.NotNil(t, err)
+	descriptionMock := mock.AnythingOfType("*dynamodb.DescribeTableInput")
 
-	api.AssertExpectations(t)
-}
-
-func TestWaitForReadyTable_OnFirstAttempt(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
-
-	called := 0
-	sleeperFn := func(elapsedMilliseconds int) int {
-		called++
-
-		return called
+	testCases := []struct {
+		subTestName    string
+		mocker         func(api *mocks.DynamoDBAPI)
+		expectedCalled int
+		expectedError  error
+	}{
+		{
+			"Error",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("DescribeTable", descriptionMock).Return(nil, expectedError).Once()
+			},
+			0,
+			expectedError,
+		},
+		{
+			"SuccessOnFirstAttempt",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("DescribeTable", descriptionMock).Return(activeDescribeOutput, nil).Once()
+			},
+			0,
+			nil,
+		},
+		{
+			"SuccessOnMultipleAttempts",
+			func(api *mocks.DynamoDBAPI) {
+				api.On("DescribeTable", descriptionMock).Return(creatingDescribeOutput, nil).Times(4)
+				api.On("DescribeTable", descriptionMock).Return(activeDescribeOutput, nil).Once()
+			},
+			4,
+			nil,
+		},
 	}
 
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
-		Once()
+	for _, testCase := range testCases {
+		t.Run(
+			testCase.subTestName,
+			func(st *testing.T) {
+				api := &mocks.DynamoDBAPI{}
 
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
-	err := service.WaitForReadyTable()
+				testCase.mocker(api)
 
-	require.Nil(t, err)
-	assert.Equal(t, 0, called)
+				called := 0
+				sleeperFn := func(elapsedMilliseconds int) int {
+					called++
 
-	api.AssertExpectations(t)
-}
+					return called
+				}
+				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
 
-func TestWaitForReadyTable_OnMultipleAttempts(t *testing.T) {
-	api := &mocks.DynamoDBAPI{}
+				err := service.WaitForReadyTable()
 
-	attempts := 4
+				assert.Equal(t, testCase.expectedError, err)
+				assert.Equal(t, testCase.expectedCalled, called)
 
-	called := 0
-	sleeperFn := func(elapsedMilliseconds int) int {
-		called++
-
-		return elapsedMilliseconds
+				api.AssertExpectations(st)
+			},
+		)
 	}
-
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusCreating), nil).
-		Times(attempts)
-
-	api.
-		On("DescribeTable", mock.AnythingOfType("*dynamodb.DescribeTableInput")).
-		Return(buildDescribeTableOutput(expectedTableName, dynamodb.TableStatusActive), nil).
-		Once()
-
-	service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
-	err := service.WaitForReadyTable()
-
-	require.Nil(t, err)
-	assert.Equal(t, attempts, called)
-
-	api.AssertExpectations(t)
 }
 
 func TestBatchWrite(t *testing.T) {
