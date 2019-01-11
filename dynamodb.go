@@ -17,12 +17,14 @@ type DynamoDBAPI interface {
 	dynamodbiface.DynamoDBAPI
 }
 
+type DynamoDBItem map[string]*dynamodb.AttributeValue
+
 type DynamoDBService interface {
 	DescribeTable() (*dynamodb.TableDescription, error)
 	UpdateCapacity(capacity Capacity) error
 	WaitForReadyTable() error
-	BatchWrite(requests []*dynamodb.WriteRequest) error
-	Scan(items ItemsChan, totalSegments, segment int64) error
+	BatchWrite(items []DynamoDBItem) error
+	Scan(items chan []DynamoDBItem, totalSegments, segment int) error
 }
 
 type dynamoDBSerivce struct {
@@ -94,13 +96,13 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 	return db.WaitForReadyTable()
 }
 
-func (db dynamoDBSerivce) BatchWrite(requests []*dynamodb.WriteRequest) error {
-	if len(requests) == 0 {
+func (db dynamoDBSerivce) BatchWrite(items []DynamoDBItem) error {
+	if len(items) == 0 {
 		return nil
 	}
 
 	var remainingRequests []*dynamodb.WriteRequest
-	for _, request := range requests {
+	for _, item := range items {
 		if len(remainingRequests) == maxBatchWriteSize {
 			if err := db.batchWriteItem(remainingRequests); err != nil {
 				return err
@@ -109,6 +111,11 @@ func (db dynamoDBSerivce) BatchWrite(requests []*dynamodb.WriteRequest) error {
 			remainingRequests = nil
 		}
 
+		request := &dynamodb.WriteRequest{
+			PutRequest: &dynamodb.PutRequest{
+				Item: item,
+			},
+		}
 		remainingRequests = append(remainingRequests, request)
 	}
 
@@ -163,9 +170,7 @@ func (db dynamoDBSerivce) WaitForReadyTable() error {
 	return nil
 }
 
-type ItemsChan chan map[string]*dynamodb.AttributeValue
-
-func (db dynamoDBSerivce) Scan(items ItemsChan, totalSegments, segment int64) error {
+func (db dynamoDBSerivce) Scan(items chan []DynamoDBItem, totalSegments, segment int) error {
 	if totalSegments == 0 {
 		return errors.New("totalSegments has to be greater than 0")
 	}
@@ -175,16 +180,19 @@ func (db dynamoDBSerivce) Scan(items ItemsChan, totalSegments, segment int64) er
 	}
 
 	if totalSegments > 1 {
-		input.SetSegment(segment)
-		input.SetTotalSegments(totalSegments)
+		input.SetSegment(int64(segment))
+		input.SetTotalSegments(int64(totalSegments))
 	}
 
 	return db.api.ScanPages(
 		&input,
 		func(output *dynamodb.ScanOutput, b bool) bool {
+			dynamoDBItems := make([]DynamoDBItem, len(output.Items))
 			for _, item := range output.Items {
-				items <- item
+				dynamoDBItems = append(dynamoDBItems, item)
 			}
+
+			items <- dynamoDBItems
 
 			return !b
 		},

@@ -196,7 +196,7 @@ func TestBatchWrite(t *testing.T) {
 	testCases := []struct {
 		subTestName   string
 		mocker        func(api *mocks.DynamoDBAPI)
-		requests      []*dynamodb.WriteRequest
+		items         []dynamodbcopy.DynamoDBItem
 		expectedError error
 	}{
 		{
@@ -204,13 +204,13 @@ func TestBatchWrite(t *testing.T) {
 			func(api *mocks.DynamoDBAPI) {
 				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, expectedError).Once()
 			},
-			defaultBatchInput.RequestItems[expectedTableName],
+			getItems(defaultBatchInput),
 			expectedError,
 		},
 		{
 			"NoItems",
 			func(api *mocks.DynamoDBAPI) {},
-			[]*dynamodb.WriteRequest{},
+			[]dynamodbcopy.DynamoDBItem{},
 			nil,
 		},
 		{
@@ -218,7 +218,7 @@ func TestBatchWrite(t *testing.T) {
 			func(api *mocks.DynamoDBAPI) {
 				api.On("BatchWriteItem", &defaultBatchInput).Return(&dynamodb.BatchWriteItemOutput{}, nil).Once()
 			},
-			defaultBatchInput.RequestItems[expectedTableName],
+			getItems(defaultBatchInput),
 			nil,
 		},
 		{
@@ -228,8 +228,8 @@ func TestBatchWrite(t *testing.T) {
 				api.On("BatchWriteItem", &secondBatchInput).Return(&dynamodb.BatchWriteItemOutput{}, nil).Once()
 			},
 			append(
-				firstBatchInput.RequestItems[expectedTableName],
-				secondBatchInput.RequestItems[expectedTableName]...,
+				getItems(firstBatchInput),
+				getItems(secondBatchInput)...,
 			),
 			nil,
 		},
@@ -241,7 +241,7 @@ func TestBatchWrite(t *testing.T) {
 
 				api.On("BatchWriteItem", &defaultBatchInput).Return(&dynamodb.BatchWriteItemOutput{}, nil).Once()
 			},
-			defaultBatchInput.RequestItems[expectedTableName],
+			getItems(defaultBatchInput),
 			nil,
 		},
 	}
@@ -256,7 +256,7 @@ func TestBatchWrite(t *testing.T) {
 
 				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
 
-				err := service.BatchWrite(testCase.requests)
+				err := service.BatchWrite(testCase.items)
 
 				assert.Equal(t, testCase.expectedError, err)
 
@@ -274,8 +274,8 @@ func TestScan(t *testing.T) {
 	testCases := []struct {
 		subTestName   string
 		mocker        func(api *mocks.DynamoDBAPI)
-		totalSegments int64
-		segment       int64
+		totalSegments int
+		segment       int
 		expectedError error
 	}{
 		{
@@ -324,7 +324,7 @@ func TestScan(t *testing.T) {
 
 				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
 
-				err := service.Scan(make(dynamodbcopy.ItemsChan), testCase.totalSegments, testCase.segment)
+				err := service.Scan(make(chan []dynamodbcopy.DynamoDBItem), testCase.totalSegments, testCase.segment)
 
 				assert.Equal(t, testCase.expectedError, err)
 
@@ -369,6 +369,15 @@ func buildBatchWriteItemInput(itemCount int) dynamodb.BatchWriteItemInput {
 	return dynamodb.BatchWriteItemInput{
 		RequestItems: items,
 	}
+}
+
+func getItems(batchInput dynamodb.BatchWriteItemInput) []dynamodbcopy.DynamoDBItem {
+	items := make([]dynamodbcopy.DynamoDBItem, len(batchInput.RequestItems[expectedTableName]))
+	for i, writeRequest := range batchInput.RequestItems[expectedTableName] {
+		items[i] = dynamodbcopy.DynamoDBItem(writeRequest.PutRequest.Item)
+	}
+
+	return items
 }
 
 func buildDescribeTableOutput(tableName, status string) *dynamodb.DescribeTableOutput {

@@ -10,13 +10,13 @@ type DynamoDBService struct {
 	mock.Mock
 }
 
-// BatchWrite provides a mock function with given fields: requests
-func (_m *DynamoDBService) BatchWrite(requests []*dynamodb.WriteRequest) error {
-	ret := _m.Called(requests)
+// BatchWrite provides a mock function with given fields: items
+func (_m *DynamoDBService) BatchWrite(items []dynamodbcopy.DynamoDBItem) error {
+	ret := _m.Called(items)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]*dynamodb.WriteRequest) error); ok {
-		r0 = rf(requests)
+	if rf, ok := ret.Get(0).(func([]dynamodbcopy.DynamoDBItem) error); ok {
+		r0 = rf(items)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -48,11 +48,11 @@ func (_m *DynamoDBService) DescribeTable() (*dynamodb.TableDescription, error) {
 }
 
 // Scan provides a mock function with given fields: items, totalSegments, segment
-func (_m *DynamoDBService) Scan(items dynamodbcopy.ItemsChan, totalSegments int64, segment int64) error {
+func (_m *DynamoDBService) Scan(items chan []dynamodbcopy.DynamoDBItem, totalSegments int, segment int) error {
 	ret := _m.Called(items, totalSegments, segment)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(dynamodbcopy.ItemsChan, int64, int64) error); ok {
+	if rf, ok := ret.Get(0).(func(chan []dynamodbcopy.DynamoDBItem, int, int) error); ok {
 		r0 = rf(items, totalSegments, segment)
 	} else {
 		r0 = ret.Error(0)
