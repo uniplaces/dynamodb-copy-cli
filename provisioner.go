@@ -8,14 +8,14 @@ type Provisioner interface {
 }
 
 type provisioningService struct {
-	srcTable           DynamoDBService
-	trgTable           DynamoDBService
+	srcTable DynamoDBService
+	trgTable DynamoDBService
 }
 
 func NewProvisioner(srcTableService, trgTableService DynamoDBService) Provisioner {
 	return provisioningService{
-		srcTable:           srcTableService,
-		trgTable:           trgTableService,
+		srcTable: srcTableService,
+		trgTable: trgTableService,
 	}
 }
 
