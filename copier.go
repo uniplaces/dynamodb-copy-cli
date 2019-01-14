@@ -56,6 +56,8 @@ func (copyService copyService) read(id int, wg *sync.WaitGroup, itemsChan chan<-
 	items, err := copyService.srcTable.Scan(copyService.totalReaders, id)
 	if err != nil {
 		errChan <- err
+
+		return
 	}
 
 	itemsChan <- items
