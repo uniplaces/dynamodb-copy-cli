@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/uniplaces/dynamodbcopy"
@@ -26,7 +28,7 @@ func TestCopy(t *testing.T) {
 		{
 			"ScanError",
 			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 1, 0).Return(scanError).Once()
+				src.On("Scan", 1, 0).Return(nil, scanError).Once()
 				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Maybe()
 			},
 			1,
@@ -36,7 +38,7 @@ func TestCopy(t *testing.T) {
 		{
 			"BatchWriteError",
 			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 1, 0).Return(nil).Once()
+				src.On("Scan", 1, 0).Return([]dynamodbcopy.DynamoDBItem{}, nil).Once()
 				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(batchWriteError).Once()
 			},
 			1,
@@ -46,7 +48,7 @@ func TestCopy(t *testing.T) {
 		{
 			"Success",
 			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 1, 0).Return(nil).Once()
+				src.On("Scan", 1, 0).Return([]dynamodbcopy.DynamoDBItem{}, nil).Once()
 				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Once()
 			},
 			1,
@@ -56,10 +58,17 @@ func TestCopy(t *testing.T) {
 		{
 			"MultipleWorkers",
 			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 3, 0).Return(nil).Once()
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 3, 1).Return(nil).Once()
-				src.On("Scan", mock.AnythingOfType("chan []dynamodbcopy.DynamoDBItem"), 3, 2).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Times(3)
+				first := buildItem("1")
+				src.On("Scan", 3, 0).Return(first, nil).Once()
+				trg.On("BatchWrite", first).Return(nil).Once()
+
+				second := buildItem("2")
+				src.On("Scan", 3, 1).Return(second, nil).Once()
+				trg.On("BatchWrite", second).Return(nil).Once()
+
+				third := buildItem("3")
+				src.On("Scan", 3, 2).Return(third, nil).Once()
+				trg.On("BatchWrite", third).Return(nil).Once()
 			},
 			3,
 			3,
@@ -86,5 +95,15 @@ func TestCopy(t *testing.T) {
 				trg.AssertExpectations(st)
 			},
 		)
+	}
+}
+
+func buildItem(id string) []dynamodbcopy.DynamoDBItem {
+	return []dynamodbcopy.DynamoDBItem{
+		{
+			"id": &dynamodb.AttributeValue{
+				S: aws.String(id),
+			},
+		},
 	}
 }

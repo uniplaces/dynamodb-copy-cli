@@ -24,7 +24,7 @@ func NewCopier(srcTableService, trgTableService DynamoDBService, totalReaders, t
 
 func (copyService copyService) Copy() error {
 	errChan := make(chan error)
-	items := make(chan []DynamoDBItem)
+	itemsChan := make(chan []DynamoDBItem)
 
 	wgReaders := &sync.WaitGroup{}
 	wgReaders.Add(copyService.totalReaders)
@@ -33,16 +33,16 @@ func (copyService copyService) Copy() error {
 	wgWriters.Add(copyService.totalWriters)
 
 	for i := 0; i < copyService.totalReaders; i++ {
-		go copyService.read(i, wgReaders, items, errChan)
+		go copyService.read(i, wgReaders, itemsChan, errChan)
 	}
 
 	for i := 0; i < copyService.totalWriters; i++ {
-		go copyService.write(wgWriters, items, errChan)
+		go copyService.write(wgWriters, itemsChan, errChan)
 	}
 
 	go func() {
 		wgReaders.Wait()
-		close(items)
+		close(itemsChan)
 		wgWriters.Wait()
 		close(errChan)
 	}()
@@ -50,15 +50,18 @@ func (copyService copyService) Copy() error {
 	return <-errChan
 }
 
-func (copyService copyService) read(id int, wg *sync.WaitGroup, itemsChan chan []DynamoDBItem, errChan chan error) {
+func (copyService copyService) read(id int, wg *sync.WaitGroup, itemsChan chan<- []DynamoDBItem, errChan chan<- error) {
 	defer wg.Done()
 
-	if err := copyService.srcTable.Scan(itemsChan, copyService.totalReaders, id); err != nil {
+	items, err := copyService.srcTable.Scan(copyService.totalReaders, id)
+	if err != nil {
 		errChan <- err
 	}
+
+	itemsChan <- items
 }
 
-func (copyService copyService) write(wg *sync.WaitGroup, itemsChan chan []DynamoDBItem, errChan chan error) {
+func (copyService copyService) write(wg *sync.WaitGroup, itemsChan <-chan []DynamoDBItem, errChan chan<- error) {
 	defer wg.Done()
 
 	if err := copyService.trgTable.BatchWrite(<-itemsChan); err != nil {

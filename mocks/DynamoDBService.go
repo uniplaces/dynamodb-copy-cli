@@ -47,18 +47,27 @@ func (_m *DynamoDBService) DescribeTable() (*dynamodb.TableDescription, error) {
 	return r0, r1
 }
 
-// Scan provides a mock function with given fields: items, totalSegments, segment
-func (_m *DynamoDBService) Scan(items chan []dynamodbcopy.DynamoDBItem, totalSegments int, segment int) error {
-	ret := _m.Called(items, totalSegments, segment)
+// Scan provides a mock function with given fields: totalSegments, segment
+func (_m *DynamoDBService) Scan(totalSegments int, segment int) ([]dynamodbcopy.DynamoDBItem, error) {
+	ret := _m.Called(totalSegments, segment)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(chan []dynamodbcopy.DynamoDBItem, int, int) error); ok {
-		r0 = rf(items, totalSegments, segment)
+	var r0 []dynamodbcopy.DynamoDBItem
+	if rf, ok := ret.Get(0).(func(int, int) []dynamodbcopy.DynamoDBItem); ok {
+		r0 = rf(totalSegments, segment)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]dynamodbcopy.DynamoDBItem)
+		}
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int, int) error); ok {
+		r1 = rf(totalSegments, segment)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // UpdateCapacity provides a mock function with given fields: capacity

@@ -24,7 +24,7 @@ type DynamoDBService interface {
 	UpdateCapacity(capacity Capacity) error
 	WaitForReadyTable() error
 	BatchWrite(items []DynamoDBItem) error
-	Scan(items chan []DynamoDBItem, totalSegments, segment int) error
+	Scan(totalSegments, segment int) ([]DynamoDBItem, error)
 }
 
 type dynamoDBSerivce struct {
@@ -163,9 +163,9 @@ func (db dynamoDBSerivce) WaitForReadyTable() error {
 	return nil
 }
 
-func (db dynamoDBSerivce) Scan(items chan []DynamoDBItem, totalSegments, segment int) error {
+func (db dynamoDBSerivce) Scan(totalSegments, segment int) ([]DynamoDBItem, error) {
 	if totalSegments == 0 {
-		return errors.New("totalSegments has to be greater than 0")
+		return nil, errors.New("totalSegments has to be greater than 0")
 	}
 
 	input := dynamodb.ScanInput{
@@ -177,17 +177,18 @@ func (db dynamoDBSerivce) Scan(items chan []DynamoDBItem, totalSegments, segment
 		input.SetTotalSegments(int64(totalSegments))
 	}
 
-	return db.api.ScanPages(
-		&input,
-		func(output *dynamodb.ScanOutput, b bool) bool {
-			dynamoDBItems := make([]DynamoDBItem, len(output.Items))
-			for _, item := range output.Items {
-				dynamoDBItems = append(dynamoDBItems, item)
-			}
+	var items []DynamoDBItem
+	pagerFn := func(output *dynamodb.ScanOutput, b bool) bool {
+		for _, item := range output.Items {
+			items = append(items, item)
+		}
 
-			items <- dynamoDBItems
+		return !b
+	}
 
-			return !b
-		},
-	)
+	if err := db.api.ScanPages(&input, pagerFn); err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
