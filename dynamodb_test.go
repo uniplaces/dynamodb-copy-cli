@@ -311,7 +311,7 @@ func TestScan(t *testing.T) {
 		{
 			"Error",
 			func(api *mocks.DynamoDBAPI) {
-				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(expectedError)
+				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(expectedError).Once()
 			},
 			1,
 			0,
@@ -327,7 +327,7 @@ func TestScan(t *testing.T) {
 		{
 			"TotalSegmentsIsOne",
 			func(api *mocks.DynamoDBAPI) {
-				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(nil)
+				api.On("ScanPages", buildScanInput(1, 0), mock.Anything).Return(nil).Once()
 			},
 			1,
 			0,
@@ -336,7 +336,7 @@ func TestScan(t *testing.T) {
 		{
 			"TotalSegmentsIsGreaterThanOne",
 			func(api *mocks.DynamoDBAPI) {
-				api.On("ScanPages", buildScanInput(5, 2), mock.Anything).Return(nil)
+				api.On("ScanPages", buildScanInput(5, 2), mock.Anything).Return(nil).Once()
 			},
 			5,
 			2,
