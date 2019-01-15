@@ -23,8 +23,8 @@ func (c Config) Provisioning(current Provisioning) Provisioning {
 	}
 
 	trg := current.Target
-	if current.Target != nil && c.writeCapacityUnits > current.Source.Write {
-		trg = &Capacity{Read: src.Read, Write: c.writeCapacityUnits}
+	if trg != nil && c.writeCapacityUnits > current.Target.Write {
+		trg = &Capacity{Read: trg.Read, Write: c.writeCapacityUnits}
 	}
 
 	return Provisioning{Source: src, Target: trg}
