@@ -96,6 +96,7 @@ func TestRunCopyTable(t *testing.T) {
 				assert.Equal(t, testCase.expectedError, err)
 
 				copierMock.AssertExpectations(st)
+				provisionerMock.AssertExpectations(st)
 			},
 		)
 	}
