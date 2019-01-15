@@ -18,7 +18,7 @@ func NewConfig(readUnits, writeUnits, readWorkers, writeWorkers int) Config {
 
 func (c Config) Provisioning(current Provisioning) Provisioning {
 	src := current.Source
-	if current.Source != nil && c.readCapacityUnits > current.Source.Read {
+	if src != nil && c.readCapacityUnits > src.Read {
 		src = &Capacity{Read: c.readCapacityUnits, Write: src.Write}
 	}
 
