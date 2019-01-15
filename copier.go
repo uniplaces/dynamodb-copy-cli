@@ -47,7 +47,7 @@ func (service copyService) Copy(readers, writers int) error {
 }
 
 func (service copyService) read(
-	readerId int,
+	readerID int,
 	totalReaders int,
 	wg *sync.WaitGroup,
 	itemsChan chan<- []DynamoDBItem,
@@ -55,7 +55,7 @@ func (service copyService) read(
 ) {
 	defer wg.Done()
 
-	items, err := service.srcTable.Scan(totalReaders, readerId)
+	items, err := service.srcTable.Scan(totalReaders, readerID)
 	if err != nil {
 		errChan <- err
 

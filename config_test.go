@@ -1,9 +1,10 @@
 package dynamodbcopy_test
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/uniplaces/dynamodbcopy"
-	"testing"
 )
 
 func TestWorkers(t *testing.T) {
