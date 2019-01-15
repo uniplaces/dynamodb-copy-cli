@@ -55,7 +55,7 @@ func (dc provisioningService) Update(provisioning Provisioning) (Provisioning, e
 }
 
 func needsProvisioningUpdate(c1, c2 *Capacity) bool {
-	return (c1 != nil && c2 != nil) && (c1.Read != c2.Read || c1.Write != c2.Write)
+	return c1 != nil && c2 != nil && (c1.Read != c2.Read || c1.Write != c2.Write)
 }
 
 type Capacity struct {
