@@ -2,10 +2,10 @@ package copytable
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
