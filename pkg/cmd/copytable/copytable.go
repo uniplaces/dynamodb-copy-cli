@@ -2,7 +2,6 @@ package copytable
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -26,23 +25,22 @@ const (
 	writerCountKey   = "writer-count"
 )
 
-func New(config *viper.Viper) *cobra.Command {
+func New() *cobra.Command {
+	config := viper.New()
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s <source-table> <target-table>", cmdName),
 		Short: shortDescription,
 		Args:  cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			config.SetDefault(srcTableKey, args[0])
 			config.SetDefault(trgTableKey, args[1])
 
 			deps, err := wireDependencies(config)
 			if err != nil {
-				log.Fatalf("%s error: %s", cmdName, err)
+				return fmt.Errorf("%s %s", cmdName, err)
 			}
 
-			if err := RunCopyTable(deps); err != nil {
-				log.Fatalf("%s error: %s", cmdName, err)
-			}
+			return RunCopyTable(deps)
 		},
 	}
 
