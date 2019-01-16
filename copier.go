@@ -1,6 +1,8 @@
 package dynamodbcopy
 
-import "sync"
+import (
+	"sync"
+)
 
 type Copier interface {
 	Copy(readers, writers int) error
