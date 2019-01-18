@@ -185,7 +185,7 @@ func (db dynamoDBSerivce) Scan(totalSegments, segment int) ([]DynamoDBItem, erro
 	}
 
 	if err := db.api.ScanPages(&input, pagerFn); err != nil {
-		return nil, fmt.Errorf("unable to scan to table %s: %s", db.tableName, err)
+		return nil, fmt.Errorf("unable to scan table %s: %s", db.tableName, err)
 	}
 
 	return items, nil
