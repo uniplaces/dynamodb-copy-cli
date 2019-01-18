@@ -40,9 +40,13 @@ func NewDynamoDBAPI(roleArn string) DynamoDBAPI {
 	}
 
 	currentSession := session.Must(session.NewSessionWithOptions(options))
-	roleCredentials := stscreds.NewCredentials(currentSession, roleArn)
+	if roleArn != "" {
+		roleCredentials := stscreds.NewCredentials(currentSession, roleArn)
 
-	return dynamodb.New(currentSession, &aws.Config{Credentials: roleCredentials})
+		return dynamodb.New(currentSession, &aws.Config{Credentials: roleCredentials})
+	}
+
+	return dynamodb.New(currentSession)
 }
 
 func NewDynamoDBService(tableName string, api DynamoDBAPI, sleepFn Sleeper) DynamoDBService {
