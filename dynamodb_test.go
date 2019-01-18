@@ -3,13 +3,13 @@ package dynamodbcopy_test
 import (
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )
