@@ -55,14 +55,10 @@ func (service copyService) read(
 ) {
 	defer wg.Done()
 
-	items, err := service.srcTable.Scan(totalReaders, readerID)
+	err := service.srcTable.Scan(totalReaders, readerID, itemsChan)
 	if err != nil {
 		errChan <- err
-
-		return
 	}
-
-	itemsChan <- items
 }
 
 func (service copyService) write(wg *sync.WaitGroup, itemsChan <-chan []DynamoDBItem, errChan chan<- error) {
