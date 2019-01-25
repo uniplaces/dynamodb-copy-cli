@@ -3,7 +3,6 @@ package dynamodbcopy
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -132,7 +131,6 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 			},
 		}
 
-		log.Printf("BatchWriteItem")
 		output, err := db.api.BatchWriteItem(batchInput)
 		if err != nil {
 			return fmt.Errorf("unable to batch write to table %s: %s", db.tableName, err)
@@ -183,7 +181,6 @@ func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []Dy
 			items = append(items, item)
 		}
 
-		log.Printf("Scan")
 		itemsChan <- items
 
 		return !b

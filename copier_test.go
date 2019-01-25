@@ -2,10 +2,12 @@ package dynamodbcopy_test
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )
@@ -16,20 +18,18 @@ func TestCopy(t *testing.T) {
 	scanError := errors.New("scanError")
 	batchWriteError := errors.New("batchWriteError")
 
-	itemChanMock := mock.AnythingOfType("chan<- []dynamodbcopy.DynamoDBItem")
-
 	testCases := []struct {
 		subTestName   string
-		mocker        func(src, trg *mocks.DynamoDBService)
+		mocker        func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans)
 		totalReaders  int
 		totalWriters  int
 		expectedError error
 	}{
 		{
 			"ScanError",
-			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", 1, 0, itemChanMock).Return(scanError).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Maybe()
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 1, 0, readChan).Return(scanError).Once()
 			},
 			1,
 			1,
@@ -37,9 +37,13 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			"BatchWriteError",
-			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", 1, 0, itemChanMock).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(batchWriteError).Once()
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 1, 0, readChan).Return(nil).Once()
+
+				items := buildItems(1)
+				chans.Items <- items
+				trg.On("BatchWrite", items).Return(batchWriteError).Once()
 			},
 			1,
 			1,
@@ -47,9 +51,13 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			"Success",
-			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", 1, 0, itemChanMock).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Once()
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 1, 0, readChan).Return(nil).Once()
+
+				items := buildItems(1)
+				chans.Items <- items
+				trg.On("BatchWrite", items).Return(nil).Once()
 			},
 			1,
 			1,
@@ -57,15 +65,23 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			"MultipleWorkers",
-			func(src, trg *mocks.DynamoDBService) {
-				src.On("Scan", 3, 0, itemChanMock).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Once()
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 3, 0, readChan).Return(nil).Once()
+				src.On("Scan", 3, 1, readChan).Return(nil).Once()
+				src.On("Scan", 3, 2, readChan).Return(nil).Once()
 
-				src.On("Scan", 3, 1, itemChanMock).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Once()
+				items1 := buildItems(1)
+				chans.Items <- items1
+				trg.On("BatchWrite", items1).Return(nil).Once()
 
-				src.On("Scan", 3, 2, itemChanMock).Return(nil).Once()
-				trg.On("BatchWrite", mock.AnythingOfType("[]dynamodbcopy.DynamoDBItem")).Return(nil).Once()
+				items2 := buildItems(2)
+				chans.Items <- items2
+				trg.On("BatchWrite", items2).Return(nil).Once()
+
+				items3 := buildItems(3)
+				chans.Items <- items3
+				trg.On("BatchWrite", items3).Return(nil).Once()
 			},
 			3,
 			3,
@@ -80,17 +96,40 @@ func TestCopy(t *testing.T) {
 				src := &mocks.DynamoDBService{}
 				trg := &mocks.DynamoDBService{}
 
-				testCase.mocker(src, trg)
+				copierChans := dynamodbcopy.NewCopierChans(testCase.totalWriters)
 
-				service := dynamodbcopy.NewCopier(src, trg)
+				testCase.mocker(src, trg, &copierChans)
+
+				service := dynamodbcopy.NewCopier(src, trg, copierChans)
 
 				err := service.Copy(testCase.totalReaders, testCase.totalWriters)
 
 				assert.Equal(st, testCase.expectedError, err)
+
+				select {
+				case _, ok := <-copierChans.Items:
+					assert.False(st, ok, "items chan should be closed")
+				case _, ok := <-copierChans.Errors:
+					assert.False(st, ok, "errors chan should be closed")
+				}
 
 				src.AssertExpectations(st)
 				trg.AssertExpectations(st)
 			},
 		)
 	}
+}
+
+func buildItems(numItems int) []dynamodbcopy.DynamoDBItem {
+	items := make([]dynamodbcopy.DynamoDBItem, numItems)
+
+	for i := 0; i < numItems; i++ {
+		items[i] = dynamodbcopy.DynamoDBItem{
+			"id": &dynamodb.AttributeValue{
+				S: aws.String(strconv.Itoa(i)),
+			},
+		}
+	}
+
+	return items
 }
