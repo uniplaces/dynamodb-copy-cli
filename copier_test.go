@@ -2,7 +2,6 @@ package dynamodbcopy_test
 
 import (
 	"errors"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/uniplaces/dynamodbcopy"
 	"github.com/uniplaces/dynamodbcopy/mocks"
 )

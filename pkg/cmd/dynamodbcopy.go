@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/uniplaces/dynamodbcopy/pkg/cmd/copytable"
 	"log"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/uniplaces/dynamodbcopy/pkg/cmd/copytable"
 )
 
 const cmdName = "dynamodbcopy"
