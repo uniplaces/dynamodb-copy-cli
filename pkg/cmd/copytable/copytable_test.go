@@ -2,6 +2,8 @@ package copytable
 
 import (
 	"errors"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -139,7 +141,7 @@ func TestSetupDependencies(t *testing.T) {
 
 	bindFlags(cmd.Flags())
 
-	deps, err := setupDependencies(cmd, []string{"src", "trg"})
+	deps, err := setupDependencies(cmd, []string{"src", "trg"}, log.New(os.Stdout, "", log.LstdFlags))
 
 	require.Nil(t, err)
 	require.NotNil(t, deps.Provisioner)

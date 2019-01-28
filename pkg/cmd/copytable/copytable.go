@@ -26,12 +26,12 @@ const (
 	debugKey         = "debug"
 )
 
-func New() *cobra.Command {
+func New(logger dynamodbcopy.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s <source-table> <target-table>", cmdName),
 		Short: shortDescription,
 		Args:  cobra.ExactArgs(2),
-		RunE:  runHandler,
+		RunE:  runHandler(logger),
 	}
 
 	bindFlags(cmd.Flags())
@@ -49,13 +49,15 @@ func bindFlags(flagSet *pflag.FlagSet) {
 	flagSet.BoolP(debugKey, "d", false, "enable debug logs")
 }
 
-func runHandler(cmd *cobra.Command, args []string) error {
-	deps, err := setupDependencies(cmd, args)
-	if err != nil {
-		return handleError("error setting up dependencies", err)
-	}
+func runHandler(logger dynamodbcopy.Logger) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		deps, err := setupDependencies(cmd, args, logger)
+		if err != nil {
+			return handleError("error setting up dependencies", err)
+		}
 
-	return run(deps)
+		return run(deps)
+	}
 }
 
 func run(deps dependencies) error {
@@ -95,7 +97,7 @@ type dependencies struct {
 	Config      dynamodbcopy.Config
 }
 
-func setupDependencies(cmd *cobra.Command, args []string) (dependencies, error) {
+func setupDependencies(cmd *cobra.Command, args []string, logger dynamodbcopy.Logger) (dependencies, error) {
 	config := viper.New()
 
 	config.SetDefault(srcTableKey, args[0])
@@ -106,8 +108,7 @@ func setupDependencies(cmd *cobra.Command, args []string) (dependencies, error) 
 	}
 
 	debugLogger := dynamodbcopy.NewDebugLogger(
-		cmd.OutOrStdout(),
-		fmt.Sprintf("[%s] ", cmdName),
+		logger,
 		config.GetBool(debugKey),
 	)
 	srcTableService := dynamodbcopy.NewDynamoDBService(
