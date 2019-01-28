@@ -2,6 +2,7 @@ package dynamodbcopy_test
 
 import (
 	"errors"
+	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -88,6 +89,34 @@ func TestCopy(t *testing.T) {
 			3,
 			3,
 			nil,
+		},
+		{
+			"ReadPanic",
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 1, 0, readChan).Run(func(args mock.Arguments) {
+					panic("read panic")
+				}).Once()
+			},
+			1,
+			1,
+			errors.New("read recovery: read panic"),
+		},
+		{
+			"WritePanic",
+			func(src, trg *mocks.DynamoDBService, chans *dynamodbcopy.CopierChans) {
+				var readChan chan<- []dynamodbcopy.DynamoDBItem = chans.Items
+				src.On("Scan", 1, 0, readChan).Return(nil).Once()
+
+				items := buildItems(1)
+				chans.Items <- items
+				trg.On("BatchWrite", items).Run(func(args mock.Arguments) {
+					panic("write panic")
+				}).Once()
+			},
+			1,
+			1,
+			errors.New("write recovery: write panic"),
 		},
 	}
 

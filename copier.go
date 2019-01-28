@@ -1,6 +1,9 @@
 package dynamodbcopy
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type Copier interface {
 	Copy(readers, writers int) error
@@ -57,7 +60,12 @@ func (service copyService) read(
 	itemsChan chan<- []DynamoDBItem,
 	errChan chan<- error,
 ) {
-	defer wg.Done()
+	defer func() {
+		wg.Done()
+		if err := recover(); err != nil {
+			errChan <- fmt.Errorf("read recovery: %s", err)
+		}
+	}()
 
 	err := service.srcTable.Scan(totalReaders, readerID, itemsChan)
 	if err != nil {
@@ -66,7 +74,12 @@ func (service copyService) read(
 }
 
 func (service copyService) write(wg *sync.WaitGroup, itemsChan <-chan []DynamoDBItem, errChan chan<- error) {
-	defer wg.Done()
+	defer func() {
+		wg.Done()
+		if err := recover(); err != nil {
+			errChan <- fmt.Errorf("write recovery: %s", err)
+		}
+	}()
 
 	for items := range itemsChan {
 		if err := service.trgTable.BatchWrite(items); err != nil {
