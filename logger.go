@@ -1,8 +1,8 @@
 package dynamodbcopy
 
 import (
+	"io"
 	"log"
-	"os"
 )
 
 type Logger interface {
@@ -14,8 +14,8 @@ type debugLogger struct {
 	debug bool
 }
 
-func NewDebugLogger(prefix string, debug bool) Logger {
-	logger := log.New(os.Stdout, prefix, log.Ltime)
+func NewDebugLogger(writer io.Writer, prefix string, debug bool) Logger {
+	logger := log.New(writer, prefix, log.Ltime)
 
 	return debugLogger{
 		Logger: logger,

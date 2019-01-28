@@ -105,7 +105,11 @@ func setupDependencies(cmd *cobra.Command, args []string) (dependencies, error) 
 		return dependencies{}, err
 	}
 
-	debugLogger := dynamodbcopy.NewDebugLogger(fmt.Sprintf("[%s] ", cmdName), config.GetBool(debugKey))
+	debugLogger := dynamodbcopy.NewDebugLogger(
+		cmd.OutOrStdout(),
+		fmt.Sprintf("[%s] ", cmdName),
+		config.GetBool(debugKey),
+	)
 	srcTableService := dynamodbcopy.NewDynamoDBService(
 		config.GetString(srcTableKey),
 		dynamodbcopy.NewDynamoDBAPI(config.GetString(srcRoleArnKey)),
