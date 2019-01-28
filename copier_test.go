@@ -2,6 +2,8 @@ package dynamodbcopy_test
 
 import (
 	"errors"
+	"io/ioutil"
+	"log"
 	"strconv"
 	"testing"
 
@@ -100,7 +102,7 @@ func TestCopy(t *testing.T) {
 
 				testCase.mocker(src, trg, &copierChans)
 
-				service := dynamodbcopy.NewCopier(src, trg, copierChans)
+				service := dynamodbcopy.NewCopier(src, trg, copierChans, log.New(ioutil.Discard, "", log.Ltime))
 
 				err := service.Copy(testCase.totalReaders, testCase.totalWriters)
 

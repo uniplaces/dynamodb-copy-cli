@@ -3,6 +3,8 @@ package dynamodbcopy_test
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -58,7 +60,12 @@ func TestDescribeTable(t *testing.T) {
 
 				testCase.mocker(api)
 
-				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+				service := dynamodbcopy.NewDynamoDBService(
+					expectedTableName,
+					api,
+					testSleeper,
+					log.New(ioutil.Discard, "", log.Ltime),
+				)
 
 				description, err := service.DescribeTable()
 
@@ -119,7 +126,12 @@ func TestUpdateCapacity(t *testing.T) {
 
 				testCase.mocker(api)
 
-				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+				service := dynamodbcopy.NewDynamoDBService(
+					expectedTableName,
+					api,
+					testSleeper,
+					log.New(ioutil.Discard, "", log.Ltime),
+				)
 
 				err := service.UpdateCapacity(testCase.capacity)
 
@@ -188,7 +200,12 @@ func TestWaitForReadyTable(t *testing.T) {
 
 					return called
 				}
-				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, sleeperFn)
+				service := dynamodbcopy.NewDynamoDBService(
+					expectedTableName,
+					api,
+					sleeperFn,
+					log.New(ioutil.Discard, "", log.Ltime),
+				)
 
 				err := service.WaitForReadyTable()
 
@@ -285,7 +302,12 @@ func TestBatchWrite(t *testing.T) {
 
 				testCase.mocker(api)
 
-				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+				service := dynamodbcopy.NewDynamoDBService(
+					expectedTableName,
+					api,
+					testSleeper,
+					log.New(ioutil.Discard, "", log.Ltime),
+				)
 
 				err := service.BatchWrite(testCase.items)
 
@@ -353,7 +375,12 @@ func TestScan(t *testing.T) {
 
 				testCase.mocker(api)
 
-				service := dynamodbcopy.NewDynamoDBService(expectedTableName, api, testSleeper)
+				service := dynamodbcopy.NewDynamoDBService(
+					expectedTableName,
+					api,
+					testSleeper,
+					log.New(ioutil.Discard, "", log.Ltime),
+				)
 
 				err := service.Scan(testCase.totalSegments, testCase.segment, make(chan []dynamodbcopy.DynamoDBItem))
 

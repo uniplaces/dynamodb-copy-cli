@@ -10,17 +10,20 @@ type copyService struct {
 	srcTable DynamoDBService
 	trgTable DynamoDBService
 	chans    CopierChans
+	logger   Logger
 }
 
-func NewCopier(srcTableService, trgTableService DynamoDBService, chans CopierChans) Copier {
+func NewCopier(srcTableService, trgTableService DynamoDBService, chans CopierChans, logger Logger) Copier {
 	return copyService{
 		srcTable: srcTableService,
 		trgTable: trgTableService,
 		chans:    chans,
+		logger:   logger,
 	}
 }
 
 func (service copyService) Copy(readers, writers int) error {
+	service.logger.Printf("copying table with readers: %d, writers: %d", readers, writers)
 	itemsChan, errChan := service.chans.Items, service.chans.Errors
 
 	wgReaders := &sync.WaitGroup{}

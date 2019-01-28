@@ -32,6 +32,7 @@ type dynamoDBSerivce struct {
 	tableName string
 	api       DynamoDBAPI
 	sleep     Sleeper
+	logger    Logger
 }
 
 func NewDynamoDBAPI(roleArn string) DynamoDBAPI {
@@ -49,8 +50,8 @@ func NewDynamoDBAPI(roleArn string) DynamoDBAPI {
 	return dynamodb.New(currentSession)
 }
 
-func NewDynamoDBService(tableName string, api DynamoDBAPI, sleepFn Sleeper) DynamoDBService {
-	return dynamoDBSerivce{tableName, api, sleepFn}
+func NewDynamoDBService(tableName string, api DynamoDBAPI, sleepFn Sleeper, logger Logger) DynamoDBService {
+	return dynamoDBSerivce{tableName, api, sleepFn, logger}
 }
 
 func (db dynamoDBSerivce) DescribeTable() (*dynamodb.TableDescription, error) {
@@ -86,6 +87,7 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 		},
 	}
 
+	db.logger.Printf("updating %s with read: %d, write: %d", db.tableName, read, write)
 	_, err := db.api.UpdateTable(input)
 	if err != nil {
 		return fmt.Errorf("unable to update table %s: %s", db.tableName, err)
@@ -95,6 +97,7 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 }
 
 func (db dynamoDBSerivce) BatchWrite(items []DynamoDBItem) error {
+	db.logger.Printf("writing batch of %d to %s", len(items), db.tableName)
 	if len(items) == 0 {
 		return nil
 	}
@@ -180,6 +183,7 @@ func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []Dy
 		for _, item := range output.Items {
 			items = append(items, item)
 		}
+		db.logger.Printf("%s table scanned page with %d items (reader %d)", db.tableName, len(items), segment)
 
 		itemsChan <- items
 

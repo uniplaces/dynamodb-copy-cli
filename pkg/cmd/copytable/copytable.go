@@ -23,6 +23,7 @@ const (
 	writeCapacityKey = "write-capacity"
 	readerCountKey   = "reader-count"
 	writerCountKey   = "writer-count"
+	debugKey         = "debug"
 )
 
 func New() *cobra.Command {
@@ -45,6 +46,7 @@ func bindFlags(flagSet *pflag.FlagSet) {
 	flagSet.Int(writeCapacityKey, 0, "write provisioning capacity to set on the target table")
 	flagSet.IntP(readerCountKey, "r", 1, "number of read workers to use")
 	flagSet.IntP(writerCountKey, "w", 1, "number of write workers to use")
+	flagSet.BoolP(debugKey, "d", false, "enable debug logs")
 }
 
 func runHandler(cmd *cobra.Command, args []string) error {
@@ -103,23 +105,27 @@ func setupDependencies(cmd *cobra.Command, args []string) (dependencies, error) 
 		return dependencies{}, err
 	}
 
+	debugLogger := dynamodbcopy.NewDebugLogger(fmt.Sprintf("[%s] ", cmdName), config.GetBool(debugKey))
 	srcTableService := dynamodbcopy.NewDynamoDBService(
 		config.GetString(srcTableKey),
 		dynamodbcopy.NewDynamoDBAPI(config.GetString(srcRoleArnKey)),
 		dynamodbcopy.RandomSleeper,
+		debugLogger,
 	)
 	trgTableService := dynamodbcopy.NewDynamoDBService(
 		config.GetString(trgTableKey),
 		dynamodbcopy.NewDynamoDBAPI(config.GetString(trgRoleArnKey)),
 		dynamodbcopy.RandomSleeper,
+		debugLogger,
 	)
 
 	copier := dynamodbcopy.NewCopier(
 		srcTableService,
 		trgTableService,
 		dynamodbcopy.NewCopierChans(config.GetInt(writerCountKey)),
+		debugLogger,
 	)
-	provisioner := dynamodbcopy.NewProvisioner(srcTableService, trgTableService)
+	provisioner := dynamodbcopy.NewProvisioner(srcTableService, trgTableService, debugLogger)
 
 	return dependencies{
 		Copier:      copier,

@@ -129,6 +129,7 @@ func TestBindFlags(t *testing.T) {
 	require.NotNil(t, cmd.Flag("write-capacity"))
 	require.NotNil(t, cmd.Flag("reader-count"))
 	require.NotNil(t, cmd.Flag("writer-count"))
+	require.NotNil(t, cmd.Flag("debug"))
 }
 
 func TestSetupDependencies(t *testing.T) {
