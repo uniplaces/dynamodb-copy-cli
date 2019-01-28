@@ -61,10 +61,10 @@ func (service copyService) read(
 	errChan chan<- error,
 ) {
 	defer func() {
-		wg.Done()
 		if err := recover(); err != nil {
 			errChan <- fmt.Errorf("read recovery: %s", err)
 		}
+		wg.Done()
 	}()
 
 	err := service.srcTable.Scan(totalReaders, readerID, itemsChan)
@@ -75,10 +75,10 @@ func (service copyService) read(
 
 func (service copyService) write(wg *sync.WaitGroup, itemsChan <-chan []DynamoDBItem, errChan chan<- error) {
 	defer func() {
-		wg.Done()
 		if err := recover(); err != nil {
 			errChan <- fmt.Errorf("write recovery: %s", err)
 		}
+		wg.Done()
 	}()
 
 	for items := range itemsChan {
