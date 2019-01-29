@@ -88,7 +88,7 @@ func run(deps dependencies) error {
 }
 
 func handleError(msg string, err error) error {
-	return fmt.Errorf("[%s] %s\n%s", cmdName, msg, err)
+	return fmt.Errorf("[%s] %s: %s", cmdName, msg, err)
 }
 
 type dependencies struct {

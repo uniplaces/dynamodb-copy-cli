@@ -145,6 +145,13 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 					attempt++
 
 					continue
+				default:
+					return fmt.Errorf(
+						"aws %s error in batch write to table %s: %s",
+						awsErr.Code(),
+						db.tableName,
+						awsErr.Error(),
+					)
 				}
 			}
 
