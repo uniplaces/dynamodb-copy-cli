@@ -178,10 +178,12 @@ func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []Dy
 		input.SetTotalSegments(int64(totalSegments))
 	}
 
+	totalScanned := 0
 	pagerFn := func(output *dynamodb.ScanOutput, b bool) bool {
 		var items []DynamoDBItem
 		for _, item := range output.Items {
 			items = append(items, item)
+			totalScanned++
 		}
 		db.logger.Printf("%s table scanned page with %d items (reader %d)", db.tableName, len(items), segment)
 
@@ -193,6 +195,8 @@ func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []Dy
 	if err := db.api.ScanPages(&input, pagerFn); err != nil {
 		return fmt.Errorf("unable to scan table %s: %s", db.tableName, err)
 	}
+
+	db.logger.Printf("%s table scanned a total of %d items (reader %d)", db.tableName, totalScanned, segment)
 
 	return nil
 }

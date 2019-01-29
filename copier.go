@@ -81,11 +81,16 @@ func (service copyService) write(wg *sync.WaitGroup, itemsChan <-chan []DynamoDB
 		wg.Done()
 	}()
 
+	totalWritten := 0
 	for items := range itemsChan {
 		if err := service.trgTable.BatchWrite(items); err != nil {
 			errChan <- err
 		}
+
+		totalWritten += len(items)
 	}
+
+	service.logger.Printf("writer wrote a total of %d items", totalWritten)
 }
 
 // CopierChans encapsulates the chan that are used by the copier
