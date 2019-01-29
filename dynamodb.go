@@ -3,8 +3,8 @@ package dynamodbcopy
 import (
 	"errors"
 	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -127,6 +127,7 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 	tableName := db.tableName
 
 	writeRequests := requests
+	attempt := 0
 	for len(writeRequests) != 0 {
 		batchInput := &dynamodb.BatchWriteItemInput{
 			RequestItems: map[string][]*dynamodb.WriteRequest{
@@ -136,6 +137,17 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 
 		output, err := db.api.BatchWriteItem(batchInput)
 		if err != nil {
+			if awsErr, ok := err.(awserr.Error); ok {
+				switch awsErr.Code() {
+				case dynamodb.ErrCodeProvisionedThroughputExceededException:
+					sleepTime := db.sleep(attempt)
+					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d) ", sleepTime, attempt)
+					attempt++
+
+					continue
+				}
+			}
+
 			return fmt.Errorf("unable to batch write to table %s: %s", db.tableName, err)
 		}
 
