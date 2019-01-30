@@ -3,16 +3,22 @@ package dynamodbcopy
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"time"
 )
 
-const maxBatchWriteSize = 25
+const (
+	maxBatchWriteSize = 25
+	maxRetryTime      = int(time.Minute) * 3
+
+	errCodeThrottlingException = "ThrottlingException"
+)
 
 // DynamoDBAPI just a wrapper over aws-sdk dynamodbiface.DynamoDBAPI interface for mocking purposes
 type DynamoDBAPI interface {
@@ -128,39 +134,31 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 	tableName := db.tableName
 
 	writeRequests := requests
-	attempt := 0
-	elapsedSleepTime := 0
 	for len(writeRequests) != 0 {
-		batchInput := &dynamodb.BatchWriteItemInput{
-			RequestItems: map[string][]*dynamodb.WriteRequest{
-				tableName: writeRequests,
-			},
-		}
+		retryHandler := func(attempt, elapsed int) (bool, error) {
+			batchInput := &dynamodb.BatchWriteItemInput{
+				RequestItems: map[string][]*dynamodb.WriteRequest{
+					tableName: writeRequests,
+				},
+			}
 
-		output, err := db.api.BatchWriteItem(batchInput)
-		if err != nil {
-			if elapsedSleepTime > int(time.Minute)*3 {
-				return fmt.Errorf("too many batch wirte retries to table %s: %s", db.tableName, err)
+			output, err := db.api.BatchWriteItem(batchInput)
+			if err == nil {
+				writeRequests = output.UnprocessedItems[tableName]
+
+				return true, nil
 			}
 
 			if awsErr, ok := err.(awserr.Error); ok {
 				switch awsErr.Code() {
 				case dynamodb.ErrCodeProvisionedThroughputExceededException:
-					sleepTime := db.sleep(elapsedSleepTime + attempt)
-					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d) ", sleepTime, attempt)
-					attempt++
-					elapsedSleepTime += sleepTime
-
-					continue
-				case "ThrottlingException":
-					sleepTime := db.sleep(int(time.Second) * attempt)
-					db.logger.Printf("batch write throttling error: waited %d ms (attempt %d) ", sleepTime, attempt)
-					attempt++
-					elapsedSleepTime += sleepTime
-
-					continue
+					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d) ", elapsed, attempt)
+					return false, nil
+				case errCodeThrottlingException:
+					db.logger.Printf("batch write throttling error: waited %d ms (attempt %d) ", elapsed, attempt)
+					return false, nil
 				default:
-					return fmt.Errorf(
+					return false, fmt.Errorf(
 						"aws %s error in batch write to table %s: %s",
 						awsErr.Code(),
 						db.tableName,
@@ -169,34 +167,44 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 				}
 			}
 
-			return fmt.Errorf("unable to batch write to table %s: %s", db.tableName, err)
+			return false, fmt.Errorf("unable to batch write to table %s: %s", db.tableName, err)
 		}
 
-		elapsedSleepTime = 0
-		attempt = 0
-		writeRequests = output.UnprocessedItems[tableName]
+		if err := db.retry(retryHandler); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (db dynamoDBSerivce) WaitForReadyTable() error {
-	elapsed := 0
-
-	for attempt := 0; ; attempt++ {
+	return db.retry(func(attempt, elapsed int) (bool, error) {
 		description, err := db.DescribeTable()
+		if err != nil {
+			return false, err
+		}
+
+		return *description.TableStatus == dynamodb.TableStatusActive, nil
+	})
+}
+
+func (db dynamoDBSerivce) retry(handler func(attempt, elapsed int) (bool, error)) error {
+	elapsed := 0
+	for attempt := 0; elapsed < maxRetryTime; attempt++ {
+		handled, err := handler(attempt, elapsed)
 		if err != nil {
 			return err
 		}
 
-		if *description.TableStatus == dynamodb.TableStatusActive {
-			break
+		if handled {
+			return nil
 		}
 
 		elapsed += db.sleep(elapsed * attempt)
 	}
 
-	return nil
+	return fmt.Errorf("waited for too long (%d ms) to perform operation on %s table", elapsed, db.tableName)
 }
 
 func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []DynamoDBItem) error {
