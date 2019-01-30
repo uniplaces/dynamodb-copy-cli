@@ -26,7 +26,7 @@ func NewCopier(srcTableService, trgTableService DynamoDBService, chans CopierCha
 }
 
 func (service copyService) Copy(readers, writers int) error {
-	service.logger.Printf("copying table with readers: %d, writers: %d", readers, writers)
+	service.logger.Printf("copying table with %d readers and %d writers", readers, writers)
 	itemsChan, errChan := service.chans.Items, service.chans.Errors
 
 	wgReaders := &sync.WaitGroup{}
