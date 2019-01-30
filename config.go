@@ -17,9 +17,9 @@ func NewConfig(readUnits, writeUnits, readWorkers, writeWorkers int) Config {
 	}
 }
 
-// Provisioning receives the current provisioning value of a table
-// transforming it based on the passed parameters by configuration
-// If table is PAY_PER_REQUEST configuration it will skip it and set it to null
+// Provisioning receives the current provisioning value of a table,
+// constructing a new Provisioning based on the argument value and the configuration parameters
+// The new Provisioning value will return the higher read and write values between the 2
 func (c Config) Provisioning(current Provisioning) Provisioning {
 	src := current.Source
 	if src != nil && c.readCapacityUnits > src.Read {
