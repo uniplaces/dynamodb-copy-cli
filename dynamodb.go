@@ -152,7 +152,7 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 			if awsErr, ok := err.(awserr.Error); ok {
 				switch awsErr.Code() {
 				case dynamodb.ErrCodeProvisionedThroughputExceededException:
-					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d) ", elapsed, attempt)
+					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d)", elapsed, attempt)
 					return false, nil
 				case errCodeThrottlingException:
 					db.logger.Printf("batch write throttling error: waited %d ms (attempt %d) ", elapsed, attempt)
