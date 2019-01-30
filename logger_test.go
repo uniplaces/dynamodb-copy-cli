@@ -19,7 +19,7 @@ func TestDebugLogger(t *testing.T) {
 		{
 			"SuccessfulLog",
 			func(logger *mocks.Logger) {
-				logger.On("Printf", mock.Anything).Once()
+				logger.On("Printf", mock.AnythingOfType("string")).Once()
 			},
 			true,
 		},
