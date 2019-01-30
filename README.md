@@ -12,21 +12,21 @@ Dynamodbcopy is a cli tool wrapper around the [aws-sdk](https://github.com/aws/a
 
 Use go get to retrieve `dynamodbcopy` to add it to your GOPATH workspace, or project's Go module dependencies.
 
-> go get github.com/uniplaces/dynamodbcopy
+> go get github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy
 
 To update run with `-u`
 
-> go get -u github.com/uniplaces/dynamodbcopy
+> go get -u github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy
 
 ### Go Modules
 
 If you are using Go modules, your go get will default to the latest tagged version. To get a specific release version of the `dynamodbcopy` use @<tag> in your go get command.
 
-> go get github.com/uniplaces/dynamodbcopy@v1.0.0
+> go get github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy@v1.0.0
 
 To get the latest repository change use @latest tag.
 
-> go get github.com/uniplaces/dynamodbcopy@latest
+> go get github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy@latest
 
 ## Opening Issues
 
