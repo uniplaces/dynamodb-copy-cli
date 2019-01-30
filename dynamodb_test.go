@@ -297,8 +297,7 @@ func TestBatchWrite(t *testing.T) {
 			"AWSProvisioningError",
 			func(api *mocks.DynamoDBAPI) {
 				err := awserr.New(dynamodb.ErrCodeProvisionedThroughputExceededException, "err", expectedError)
-				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).
-					Once()
+				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).Once()
 
 				api.On("BatchWriteItem", &defaultBatchInput).Return(&dynamodb.BatchWriteItemOutput{}, nil).Once()
 			},
@@ -309,8 +308,7 @@ func TestBatchWrite(t *testing.T) {
 			"AWSThrottlingError",
 			func(api *mocks.DynamoDBAPI) {
 				err := awserr.New("ThrottlingException", "err", expectedError)
-				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).
-					Once()
+				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).Once()
 
 				api.On("BatchWriteItem", &defaultBatchInput).Return(&dynamodb.BatchWriteItemOutput{}, nil).Once()
 			},
@@ -321,8 +319,7 @@ func TestBatchWrite(t *testing.T) {
 			"AWSGenericErrorError",
 			func(api *mocks.DynamoDBAPI) {
 				err := awserr.New(dynamodb.ErrCodeResourceNotFoundException, "err", expectedError)
-				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).
-					Once()
+				api.On("BatchWriteItem", &defaultBatchInput).Return(nil, err).Once()
 			},
 			getItems(defaultBatchInput),
 			true,
