@@ -155,7 +155,7 @@ func (db dynamoDBSerivce) batchWriteItem(requests []*dynamodb.WriteRequest) erro
 					db.logger.Printf("batch write provisioning error: waited %d ms (attempt %d)", elapsed, attempt)
 					return false, nil
 				case errCodeThrottlingException:
-					db.logger.Printf("batch write throttling error: waited %d ms (attempt %d) ", elapsed, attempt)
+					db.logger.Printf("batch write throttling error: waited %d ms (attempt %d)", elapsed, attempt)
 					return false, nil
 				default:
 					return false, fmt.Errorf(
