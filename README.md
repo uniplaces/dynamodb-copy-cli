@@ -12,9 +12,9 @@ Dynamodbcopy is a cli tool wrapper around the [aws-sdk](https://github.com/aws/a
 
 - Provides a CLI to easily copy dynamodb records from one place to another
 - Allows you to set read and write capacity units for the source and target table
-- Integrates with AWS-SDK, sharing it's credentials
+- Integrates with [aws-sdk](https://github.com/aws/aws-sdk-go), sharing it's credentials
 - Allows you to parameterize the source and target table with specific roles, enabling you to perform cross-account copies
-- Stores current provisioning values before performing a copy, restoring them if any error occurs during the copy.
+- Stores current provisioning values before performing a copy, restoring the inital values at the end of the copy or if any error occurs during the copy.
 
 ## Usage
 
