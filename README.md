@@ -8,6 +8,18 @@
 
 Dynamodbcopy is a cli tool wrapper around the [aws-sdk](https://github.com/aws/aws-sdk-go) that allows you to copy information from one dynamodb table to another.
 
+## Main Features
+
+- Provides a CLI to easily copy dynamodb records from one place to another
+- Allows you to set read and write capacity units for the source and target table
+- Integrates with AWS-SDK, sharing it's credentials
+- Allows you to parameterize the source and target table with specific roles, enabling you to perform cross-account copies
+- Stores current provisioning values before performing a copy, restoring them if any error occurs during the copy.
+
+## Usage
+
+> Use "dynamodbcopy [command] --help" for more information about a command.
+
 ## Installing
 
 Use go get to retrieve `dynamodbcopy` to add it to your GOPATH workspace, or project's Go module dependencies.
@@ -20,17 +32,17 @@ To update run with `-u`
 
 ### Go Modules
 
-If you are using Go modules, your go get will default to the latest tagged version. To get a specific release version of the `dynamodbcopy` use @<tag> in your go get command.
+If you are using Go modules, your go get will default to the latest tagged version. To get a specific release version of the `dynamodbcopy` use `@<tag>` in your go get command.
 
 > go get github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy@v1.0.0
 
-To get the latest repository change use @latest tag.
+To get the latest repository change use `@latest` tag.
 
 > go get github.com/uniplaces/dynamodbcopy/cmd/dynamodbcopy@latest
 
 ## Opening Issues
 
-If you encounter a bug start by searching the existing issues and see if others are also experiencing the issue before opening a new one. Please include the versions for `dynamodbcopy` and Go that you are using. Please also include reproduction case when appropriate.
+If you encounter a bug, please start by searching the existing issues and see if others are also experiencing the issue before opening a new one. Please include the version for `dynamodbcopy` and Go that you are using. Please also include reproduction case when appropriate.
 
 ## Contributing
 
