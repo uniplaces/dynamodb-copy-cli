@@ -232,7 +232,7 @@ func (db dynamoDBSerivce) retry(handler func(attempt, elapsed int) (bool, error)
 }
 
 // Scan allows you to perform a parallel scan over the table, writing the scanned items into the provided itemsChan
-// If totalSegments is equal to 1, it will a non-parallel scan.
+// If totalSegments is equal to 1, it will perform a sequential scan.
 func (db dynamoDBSerivce) Scan(totalSegments, segment int, itemsChan chan<- []DynamoDBItem) error {
 	if totalSegments == 0 {
 		return errors.New("totalSegments has to be greater than 0")
