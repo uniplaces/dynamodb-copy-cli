@@ -8,7 +8,7 @@ import (
 const maxRandomFactor = 100
 
 // Sleeper abstracts out sleep side effects to allow for better testing,
-// receiving the ms it to sleep, returning the total time it spent sleeping
+// receiving the intended sleep time (in ms) and returning the total time spent sleeping
 type Sleeper func(ms int) int
 
 // RandomSleeper will sleep for the provided time (in ms) plus an additional random factor (ranging between [0, 100[).
