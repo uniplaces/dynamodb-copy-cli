@@ -11,7 +11,7 @@ const maxRandomFactor = 100
 // receiving the ms it to sleep, returning the total time it spent sleeping
 type Sleeper func(ms int) int
 
-// RandomSleeper will sleep for the provided ms plus an aditional factor (ranging between [0, 100[).
+// RandomSleeper will sleep for the provided time (in ms) plus an additional random factor (ranging between [0, 100[).
 // Returns the total sleep time
 func RandomSleeper(ms int) int {
 	elapsed := ms + rand.Intn(maxRandomFactor)
