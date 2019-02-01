@@ -119,7 +119,7 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 	return db.WaitForReadyTable()
 }
 
-// BatchWrite writes given DynamoDBItem in the DynamoDB table.
+// BatchWrite writes the given DynamoDBItem slice into the DynamoDB table.
 //
 // BatchWrite splits the given DynamoDBItem slice in 25 of 25 items.
 //
