@@ -27,7 +27,7 @@ type DynamoDBClient interface {
 
 // NewDynamoClient creates a new DynamoDBClient to create a session for a given ARN role
 //
-// NewDynamoClient creates DynamoDB client instance a wrapper around the AWS-SDK with a predefined Session.
+// NewDynamoClient creates a DynamoDB client wrapper around the AWS-SDK with a predefined Session.
 // By default, it creates a new Session with SharedConfigEnable,
 // so you can use AWS SDK's environment variables and AWS credentials to connect to DynamoDB.
 //
