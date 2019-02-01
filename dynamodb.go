@@ -31,7 +31,7 @@ type DynamoDBClient interface {
 // By default, it creates a new Session with SharedConfigEnable,
 // so you can use AWS SDK's environment variables and AWS credentials to connect to DynamoDB.
 //
-// The provided ARN role allows you to configure the Session to ito assume a specific IAM Role.
+// The provided ARN role allows you to configure the Session to assume a specific IAM Role.
 //
 // If an empty string is provided, it will create a new session with SharedConfigEnable
 // Please refer to https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html for more
