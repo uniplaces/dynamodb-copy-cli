@@ -121,7 +121,7 @@ func (db dynamoDBSerivce) UpdateCapacity(capacity Capacity) error {
 
 // BatchWrite writes the given DynamoDBItem slice into the DynamoDB table.
 //
-// BatchWrite splits the given DynamoDBItem slice in 25 of 25 items.
+// The given items will be written in groups of 25 each.
 //
 // This method will retry:
 // 	1 - if there are any any unprocessed items when performing the BatchWrite
